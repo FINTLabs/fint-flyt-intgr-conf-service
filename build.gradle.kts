@@ -64,6 +64,9 @@ extra["tomcat.version"] = "10.1.59"
 
 dependencies {
     constraints {
+        implementation("at.yawk.lz4:lz4-java:1.11.2") {
+            because("Fixes CVE-2026-59949 in the kafka-clients transitive dependency")
+        }
         testImplementation("org.apache.commons:commons-compress:1.28.0") {
             because("Fixes CVE-2024-25710 and CVE-2024-26308 in the Testcontainers transitive dependency")
         }
@@ -71,20 +74,31 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.security:spring-security-config")
+    compileOnly("org.springframework.security:spring-security-web")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("no.novari:flyt-audit-starter:1.1.0")
+    implementation("no.novari:flyt-kafka:7.2.0")
+    implementation("no.novari:flyt-web-resource-server:4.0.0")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("no.novari:flyt-catalog-contract-fixtures:1.1.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.3.0")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
+    testImplementation("org.springframework.security:spring-security-core")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation(kotlin("test"))
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
