@@ -11,20 +11,42 @@ metadata:
     app.kubernetes.io/part-of: fint-flyt
     fintlabs.no/team: flyt
     fintlabs.no/org-id: fintlabs.no
-# Kafka er bevisst utelatt: topic-konfigurasjon opprettes og endres når konsument-bønnene
-# bygges, altså ved oppstart. En tjeneste som deployes med Kafka aktivert før et domene er
-# migrert, ville kunne endre topics som fortsatt eies av de gamle tjenestene. Kafka legges
-# til per domenesteg, sammen med domenet som trenger det.
+# Kafka og ingress vokser med ett domene per steg. Topic-konfigurasjon opprettes og endres når
+# konsument-bønnene bygges, altså ved oppstart — en tjeneste som deployes med Kafka aktivert for
+# et domene den ikke har overtatt, ville kunne endre topics som fortsatt eies av en gammel
+# tjeneste. Rutene og aclene her dekker derfor value-converting og ikke mer.
 spec:
   port: 8080
   imagePullPolicy: Always
   orgId: fintlabs.no
   image: ghcr.io/fintlabs/fint-flyt-intgr-conf-service:sha-0000000
+  kafka:
+    enabled: true
+    acls:
+      - permission: admin
+        topic: 'no-permission'
   database:
     database: fint-flyt
+  url:
+    hostname: flyt.vigoiks.no
+    basePath: ""
+  ingress:
+    routes:
+      - host: flyt.vigoiks.no
+        path: path
   env:
     - name: JAVA_TOOL_OPTIONS
       value: '-XX:+ExitOnOutOfMemoryError -Xmx768M -Xms768M'
+    - name: fint.flyt.authorization.sso.client-id
+      valueFrom:
+        secretKeyRef:
+          name: fint-flyt-authorization-oauth2-client
+          key: fint.sso.client-id
+    - name: fint.flyt.authorization.sso.client-secret
+      valueFrom:
+        secretKeyRef:
+          name: fint-flyt-authorization-oauth2-client
+          key: fint.sso.client-secret
   resources:
     limits:
       memory: "1024Mi"

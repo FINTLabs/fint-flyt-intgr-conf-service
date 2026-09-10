@@ -4,22 +4,34 @@ Spring Boot-tjeneste som skal samle katalogdomenet i FINT Flyt — integration, 
 value converting og discovery — i én utrullbar enhet, og erstatte de fire tjenestene som eier
 disse domenene i dag.
 
-Persistenslaget står, men ingen domenelogikk er flyttet inn ennå.
+Value-converting er flyttet inn og betjenes herfra. De tre øvrige domenene ligger fortsatt i
+sine egne tjenester, og flyttes ett steg om gangen.
 
 ## Pakkestruktur
 
 Ett Gradle-modul med én pakke per domene under `no.novari.flyt.catalog`:
 
-| Pakke                                    | Erstatter                          |
-|------------------------------------------|------------------------------------|
-| `no.novari.flyt.catalog.configuration`   | fint-flyt-configuration-service    |
-| `no.novari.flyt.catalog.integration`     | fint-flyt-integration-service      |
-| `no.novari.flyt.catalog.valueconverting` | fint-flyt-value-converting-service |
-| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        |
+| Pakke                                    | Erstatter                          | Status         |
+|------------------------------------------|------------------------------------|----------------|
+| `no.novari.flyt.catalog.valueconverting` | fint-flyt-value-converting-service | Flyttet inn    |
+| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        | Kun persistens |
+| `no.novari.flyt.catalog.integration`     | fint-flyt-integration-service      | Kun persistens |
+| `no.novari.flyt.catalog.configuration`   | fint-flyt-configuration-service    | Kun persistens |
 
 Pakkeskillet er et krav, ikke en preferanse: tjenesten beholder de fire eksisterende
 databaseskjemaene, og trenger derfor én persistence unit per skjema. `@EnableJpaRepositories`
 velger repositories per pakke, så hvert domene må ligge i sin egen pakke.
+
+Innenfor et domene speiler underpakkene den gamle tjenesten: `api`, `application`, `domain` og
+`infrastructure`. Klassenavnene er også beholdt, slik at flyttingen kan leses som en flytting.
+
+### Komponentskanning
+
+`@SpringBootApplication` navngir pakkene den skanner. `flyt-web-resource-server` og
+`no.novari:kafka` registrerer bare deler av bønnene sine gjennom auto-konfigurasjon — resten er
+`@Service`-klasser som forutsetter at konsumenten skanner bibliotekets egen pakke. De fire gamle
+tjenestene fikk det gratis fordi applikasjonsklassen deres lå i `no.novari`. Her står pakkene
+oppført eksplisitt, framfor å skanne hele `no.novari`.
 
 ## Persistering
 
@@ -85,11 +97,21 @@ tilbakestilles.
 
 ## Kafka
 
-Det er bevisst ingen Kafka-konfigurasjon i dette repoet, og ingen i kustomize-basen.
-Topic-konfigurasjon opprettes og endres når konsument-bønnene bygges, altså ved oppstart — ikke
-ved cutover. En tjeneste som deployes med Kafka aktivert før et domene er migrert, ville derfor
-kunne endre topics som fortsatt eies av de gamle tjenestene. Kafka legges til per domenesteg,
-sammen med domenet som trenger det.
+Kafka og ingress vokser med ett domene per steg. Topic-konfigurasjon opprettes og endres når
+konsument-bønnene bygges, altså ved oppstart — ikke ved cutover. En tjeneste som deployes med Kafka
+aktivert for et domene den ikke har overtatt, ville derfor kunne endre topics som fortsatt eies av
+en gammel tjeneste. Rutene og aclene i kustomize-basen dekker value-converting og ikke mer.
+
+Consumer group er `${fint.application-id}`, altså et nytt navn uten commitede offsets. Sammen med
+`auto.offset.reset=earliest` — bibliotekets default, som **ikke skal overstyres** — betyr det at
+tjenesten leser fra begynnelsen av topicen ved første oppstart per tenant, og dermed plukker opp
+alt som ble produsert i cutover-gapet. Prisen er at meldinger behandles på nytt, og den er allerede
+betalt: request/reply-konsumentene er rene lesninger, og et avspilt svar kan ikke matches mot en
+pågående forespørsel fordi correlation-ID-ene er UUID-er.
+
+Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID.
+`request.value-converting.by.value-converting-id` består derfor uendret, og mapping-service trenger
+ingen ny bygging.
 
 ## Kjøre lokalt
 
@@ -98,12 +120,13 @@ Forutsetninger:
 - Java 25
 - Docker (for Docker Compose og for Testcontainers i testene)
 
-`docker-compose.yaml` monterer `scripts/local-postgres-init.sql`, som oppretter tjenestens eget
-skjema slik pgerator gjør i drift. Skriptet kjører bare når datavolumet er tomt — har du et volum
-fra før, trengs `docker compose down -v` én gang.
+`docker-compose.yaml` starter PostgreSQL og Kafka. Postgres-containeren monterer
+`scripts/local-postgres-init.sql`, som oppretter tjenestens eget skjema slik pgerator gjør i drift.
+Skriptet kjører bare når datavolumet er tomt — har du et volum fra før, trengs
+`docker compose down -v` én gang.
 
 ```shell
-docker compose up -d                                    # PostgreSQL på localhost:5441
+docker compose up -d                                    # PostgreSQL på 5441, Kafka på 9192
 ./gradlew check                                         # ktlint + tester
 SPRING_PROFILES_ACTIVE=local-staging ./gradlew bootRun  # kjører på port 8095
 ```
@@ -122,3 +145,19 @@ Regenerer overlays etter endringer i malen:
 
 Applikasjonsnavnet gir databasebrukeren, og dermed skjemaet, navnet sitt: flaiserator oppretter
 én `PGUser` per applikasjon, og skjemaet følger mønsteret `{tenant}_{applikasjonsnavn}_db` i databasen `fint-flyt`.
+
+Overlayene setter ingress-rute, `server.servlet.context-path`, probe- og metrics-stier, Kafka-acl og
+autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med ett unntak: de tre tidligere
+Viken-fylkene slipper også inn brukere fra `viken.no` og `frid-iks.no`, og det står i en tabell i
+`render-overlay.sh`.
+
+### Cutover
+
+Gammel og ny tjeneste kan ikke kjøre samtidig for samme tenant. De ville begge svart på den samme
+request-topicen, og begge hatt ingress-ruter på samme path. Cutover per tenant er derfor atomisk:
+deploy den nye tjenesten med `MD`-workflowen, og slett den gamle tjenestens deployment for tenanten.
+
+Tilbakerulling er å deploye den gamle tjenesten igjen. Ingen data er flyttet — begge tjenestene
+leser og skriver det samme skjemaet — så konfigurasjonsarbeid gjort etter cutover er umiddelbart
+synlig igjen. Det forutsetter at kustomize-overlays og pipelines for de gamle tjenestene ikke ryddes
+før reverserbarhetsvinduet er ute.
