@@ -130,20 +130,47 @@ class ApplicationTest : CatalogIntegrationTest() {
         }
     }
 
-    /**
-     * Klienten er mapping-service, som ikke skal bygges eller deployes på nytt. Topic-navnet er
-     * derfor kontrakt, og det bygges av tjenestens egen konfigurasjon — ikke av noe klienten sender.
-     */
-    @Test
-    fun `the value converting request consumer listens on the topic mapping-service produces to`() {
-        val container =
-            context.getBean(
-                "valueConversionByIdRequestConsumer",
-                ConcurrentMessageListenerContainer::class.java,
-            )
+    @ParameterizedTest
+    @CsvSource(
+        "IntegrationMetadata",
+        "InstanceMetadataContent",
+        "InstanceMetadataCategory",
+        "InstanceObjectCollectionMetadata",
+        "InstanceValueMetadata",
+    )
+    fun `the discovery entities belong to exactly one persistence unit`(entityName: String) {
+        assertThat(entityNamesOf("discoveryEntityManagerFactory")).contains(entityName)
+        listOf(
+            "ownSchemaEntityManagerFactory",
+            "integrationEntityManagerFactory",
+            "configurationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(entityNamesOf(beanName))
+                .describedAs(beanName)
+                .doesNotContain(entityName)
+        }
+    }
 
-        assertThat(container.containerProperties.topics)
-            .containsExactly("test-no.flyt.request.value-converting.by.value-converting-id")
+    /**
+     * Klientene — mapping-service, configuration-service, acos-gateway og gateways bygget på
+     * flyt-gateway-starter — skal ikke bygges eller deployes på nytt. Topic-navnene er derfor
+     * kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe klienten sender.
+     */
+    @ParameterizedTest
+    @CsvSource(
+        "valueConversionByIdRequestConsumer,       test-no.flyt.request.value-converting.by.value-converting-id",
+        "metadataByMetadataIdRequestConsumer,      test-no.flyt.request.metadata.by.metadata-id",
+        "instanceMetadataByMetadataIdRequestConsumer, test-no.flyt.request.instance-metadata.by.metadata-id",
+        "integrationMetadataEventConsumer,         test-no.flyt.event.integration-metadata-received",
+    )
+    fun `each consumer listens on the topic its clients produce to`(
+        beanName: String,
+        topic: String,
+    ) {
+        val container = context.getBean(beanName, ConcurrentMessageListenerContainer::class.java)
+
+        assertThat(container.containerProperties.topics).containsExactly(topic)
     }
 
     @Test

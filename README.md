@@ -4,8 +4,8 @@ Spring Boot-tjeneste som skal samle katalogdomenet i FINT Flyt — integration, 
 value converting og discovery — i én utrullbar enhet, og erstatte de fire tjenestene som eier
 disse domenene i dag.
 
-Value-converting er flyttet inn og betjenes herfra. De tre øvrige domenene ligger fortsatt i
-sine egne tjenester, og flyttes ett steg om gangen.
+Value-converting og discovery er flyttet inn og betjenes herfra. Integration og configuration
+ligger fortsatt i sine egne tjenester, og flyttes samlet i siste steg fordi de kaller hverandre.
 
 ## Pakkestruktur
 
@@ -14,7 +14,7 @@ Ett Gradle-modul med én pakke per domene under `no.novari.flyt.catalog`:
 | Pakke                                    | Erstatter                          | Status         |
 |------------------------------------------|------------------------------------|----------------|
 | `no.novari.flyt.catalog.valueconverting` | fint-flyt-value-converting-service | Flyttet inn    |
-| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        | Kun persistens |
+| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        | Flyttet inn    |
 | `no.novari.flyt.catalog.integration`     | fint-flyt-integration-service      | Kun persistens |
 | `no.novari.flyt.catalog.configuration`   | fint-flyt-configuration-service    | Kun persistens |
 
@@ -22,8 +22,11 @@ Pakkeskillet er et krav, ikke en preferanse: tjenesten beholder de fire eksister
 databaseskjemaene, og trenger derfor én persistence unit per skjema. `@EnableJpaRepositories`
 velger repositories per pakke, så hvert domene må ligge i sin egen pakke.
 
-Innenfor et domene speiler underpakkene den gamle tjenesten: `api`, `application`, `domain` og
-`infrastructure`. Klassenavnene er også beholdt, slik at flyttingen kan leses som en flytting.
+Innenfor et domene speiler underpakkene den gamle tjenesten, og de fire er ikke like:
+value-converting har `api`, `application`, `domain` og `infrastructure`, mens discovery har
+controller, tjeneste og repository i domenets toppakke med `kafka`, `mapping`, `model` og
+`validation` under. Klassenavnene er også beholdt. Poenget er at hver flytting kan leses som en
+flytting — en felles målstruktur ville blandet strukturendring inn i et cutover-steg.
 
 ### Komponentskanning
 
@@ -100,7 +103,7 @@ tilbakestilles.
 Kafka og ingress vokser med ett domene per steg. Topic-konfigurasjon opprettes og endres når
 konsument-bønnene bygges, altså ved oppstart — ikke ved cutover. En tjeneste som deployes med Kafka
 aktivert for et domene den ikke har overtatt, ville derfor kunne endre topics som fortsatt eies av
-en gammel tjeneste. Rutene og aclene i kustomize-basen dekker value-converting og ikke mer.
+en gammel tjeneste. Rutene i kustomize-basen dekker value-converting og discovery, og ikke mer.
 
 Consumer group er `${fint.application-id}`, altså et nytt navn uten commitede offsets. Sammen med
 `auto.offset.reset=earliest` — bibliotekets default, som **ikke skal overstyres** — betyr det at
@@ -109,9 +112,23 @@ alt som ble produsert i cutover-gapet. Prisen er at meldinger behandles på nytt
 betalt: request/reply-konsumentene er rene lesninger, og et avspilt svar kan ikke matches mot en
 pågående forespørsel fordi correlation-ID-ene er UUID-er.
 
-Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID.
-`request.value-converting.by.value-converting-id` består derfor uendret, og mapping-service trenger
-ingen ny bygging.
+Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID. Kontraktene består
+derfor uendret, og ingen klient trenger ny bygging:
+
+| Topic | Klient |
+|---|---|
+| `request.value-converting.by.value-converting-id` | mapping-service |
+| `request.metadata.by.metadata-id` | configuration-service |
+| `request.instance-metadata.by.metadata-id` | configuration-service |
+| `event.integration-metadata-received` | acos-gateway og gateways bygget på flyt-gateway-starter |
+
+De to metadata-kontraktene opphører først når configuration-domenet flyttes inn, og topicene
+avvikles etter det.
+
+`event.integration-metadata-received` er den eneste hendelsen katalogen konsumerer, og den eneste
+kontrakten der avspillingen har en skrivende effekt. Den er ufarlig fordi konsumet er idempotent i
+to lag: `IntegrationMetadataEventHandler` sin `exists`-sjekk og den unike constrainten på
+`(source_application_id, source_application_integration_id, version)` i `V1__init.sql`.
 
 ## Kjøre lokalt
 
