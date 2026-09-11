@@ -22,6 +22,7 @@ class TransactionManagerBindingTest {
     @ParameterizedTest(name = "{0}")
     @CsvSource(
         "no.novari.flyt.catalog.valueconverting, valueConvertingTransactionManager, 2",
+        "no.novari.flyt.catalog.discovery,       discoveryTransactionManager,       0",
     )
     fun `every transactional method in a domain names that domain's transaction manager`(
         domainPackage: String,

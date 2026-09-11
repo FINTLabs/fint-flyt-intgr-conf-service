@@ -21,6 +21,9 @@ patches:
       - op: replace
         path: "/spec/ingress/routes/0/path"
         value: "$CONTEXT_PATH/api/intern/value-convertings"
+      - op: replace
+        path: "/spec/ingress/routes/1/path"
+        value: "$CONTEXT_PATH/api/intern/metadata"
       - op: add
         path: "/spec/env/-"
         value:
