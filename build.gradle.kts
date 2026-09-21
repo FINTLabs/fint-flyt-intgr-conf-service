@@ -76,7 +76,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation("no.novari:flyt-audit-starter:1.1.0")
+    implementation("no.novari:flyt-audit-starter:1.2.0")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly("org.postgresql:postgresql")
