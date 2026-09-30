@@ -49,6 +49,25 @@ role_pairs() {
   }
 }
 
+# Secreten til oauth2-klienten i ra-no bruker andre nøkkelnavn enn i de øvrige namespacene.
+authorization_sso_patches() {
+  local namespace="$1"
+  case "$namespace" in
+    ra-no)
+      cat <<'EOF_PATCH'
+
+      - op: replace
+        path: "/spec/env/1/valueFrom/secretKeyRef/key"
+        value: "fint.flyt.authorization.sso.client-id"
+      - op: replace
+        path: "/spec/env/2/valueFrom/secretKeyRef/key"
+        value: "fint.flyt.authorization.sso.client-secret"
+EOF_PATCH
+      ;;
+    *) printf '' ;;
+  esac
+}
+
 while IFS= read -r file; do
   rel="${file#"$ROOT/kustomize/overlays/"}"
   dir="$(dirname "$rel")"
@@ -61,6 +80,7 @@ while IFS= read -r file; do
   export APP_INSTANCE="fint-flyt-intgr-conf-service_$(app_instance_suffix "$namespace")"
   export CONTEXT_PATH="$(env_prefix "$environment")/$namespace"
   export ROLE_PAIRS="$(role_pairs "$ORG_ID")"
+  export AUTHORIZATION_SSO_PATCHES="$(authorization_sso_patches "$namespace")"
 
   tmp="$(mktemp)"
   envsubst < "$BASE_TEMPLATE" > "$tmp"

@@ -113,6 +113,32 @@ Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID.
 `request.value-converting.by.value-converting-id` består derfor uendret, og mapping-service trenger
 ingen ny bygging.
 
+## OpenAPI-dokumentasjon
+
+Swagger UI og OpenAPI-spesifikasjonen er bare tilgjengelig ved direkte tilgang til tjenesten. Stiene
+ligger bevisst utenfor ingress-rutene for det interne API-et:
+
+- `/swagger-ui.html`
+- `/v3/api-docs`
+- `/v3/api-docs.yaml`
+
+Hvert domene har sin egen gruppe, som velges i Swagger UI. Felles informasjon og sikkerhetsoppsett
+ligger i `no.novari.flyt.catalog.openapi`; gruppene ligger i domenepakkene.
+
+I FINTLabs beta, port-forward Kubernetes-servicen:
+
+```shell
+kubectl -n fintlabs-no port-forward service/fint-flyt-intgr-conf-service 8080:8080
+```
+
+Dokumentasjonen er da tilgjengelig på:
+
+- `http://localhost:8080/beta/fintlabs-no/swagger-ui.html`
+- `http://localhost:8080/beta/fintlabs-no/v3/api-docs`
+
+Dokumentasjonen krever ikke bearer-token over port-forward. Kall mot det dokumenterte interne
+API-et krever fortsatt gyldig JWT.
+
 ## Kjøre lokalt
 
 Forutsetninger:
@@ -147,9 +173,9 @@ Applikasjonsnavnet gir databasebrukeren, og dermed skjemaet, navnet sitt: flaise
 én `PGUser` per applikasjon, og skjemaet følger mønsteret `{tenant}_{applikasjonsnavn}_db` i databasen `fint-flyt`.
 
 Overlayene setter ingress-rute, `server.servlet.context-path`, probe- og metrics-stier, Kafka-acl og
-autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med ett unntak: de tre tidligere
-Viken-fylkene slipper også inn brukere fra `viken.no` og `frid-iks.no`, og det står i en tabell i
-`render-overlay.sh`.
+autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med to unntak som står i
+`render-overlay.sh`: de tre tidligere Viken-fylkene slipper også inn brukere fra `viken.no` og
+`frid-iks.no`, og oauth2-secreten i `ra-no` bruker andre nøkkelnavn enn de øvrige namespacene.
 
 ### Cutover
 
