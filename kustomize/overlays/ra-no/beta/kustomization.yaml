@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ra-no
+
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      app.kubernetes.io/instance: fint-flyt-intgr-conf-service_ra_no
+      fintlabs.no/org-id: ra.no
+
+patches:
+  - patch: |-
+      - op: replace
+        path: "/spec/orgId"
+        value: "ra.no"
+
+    target:
+      kind: Application
+      name: fint-flyt-intgr-conf-service
