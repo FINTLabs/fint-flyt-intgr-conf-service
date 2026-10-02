@@ -64,6 +64,9 @@ extra["tomcat.version"] = "10.1.59"
 
 dependencies {
     constraints {
+        implementation("at.yawk.lz4:lz4-java:1.12.0") {
+            because("Fixes CVE-2026-59949 in the kafka-clients transitive dependency")
+        }
         testImplementation("org.apache.commons:commons-compress:1.28.0") {
             because("Fixes CVE-2024-25710 and CVE-2024-26308 in the Testcontainers transitive dependency")
         }
@@ -71,20 +74,35 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1")
+    compileOnly("org.springframework.security:spring-security-config")
+    compileOnly("org.springframework.security:spring-security-web")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("io.github.oshai:kotlin-logging-jvm:8.0.4")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation("no.novari:flyt-audit-starter:1.1.0")
+    implementation("no.novari:flyt-audit-starter:1.2.0")
+    implementation("no.novari:flyt-kafka:7.3.0")
+    implementation("no.novari:flyt-web-resource-server:4.0.0")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
+    // Pinned to 8.x: 9.x pulls in Jackson 3 (tools.jackson), while Spring Boot 3.5 uses Jackson 2
+    runtimeOnly("net.logstash.logback:logstash-logback-encoder:8.1")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("no.novari:flyt-catalog-contract-fixtures:1.1.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.4.0")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
+    testImplementation("org.springframework.security:spring-security-core")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation(kotlin("test"))
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
