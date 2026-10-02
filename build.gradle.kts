@@ -64,7 +64,7 @@ extra["tomcat.version"] = "10.1.59"
 
 dependencies {
     constraints {
-        implementation("at.yawk.lz4:lz4-java:1.11.2") {
+        implementation("at.yawk.lz4:lz4-java:1.12.0") {
             because("Fixes CVE-2026-59949 in the kafka-clients transitive dependency")
         }
         testImplementation("org.apache.commons:commons-compress:1.28.0") {
@@ -97,7 +97,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("no.novari:flyt-catalog-contract-fixtures:1.1.0")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:6.3.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.4.0")
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.springframework.security:spring-security-core")
     testImplementation("org.testcontainers:junit-jupiter")
