@@ -4,32 +4,16 @@ import jakarta.persistence.EntityManagerFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationContext
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
-import org.springframework.test.context.TestPropertySource
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer
 import org.springframework.transaction.PlatformTransactionManager
-import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
-import java.sql.DriverManager
 import javax.sql.DataSource
 
-@SpringBootTest
-@Testcontainers
-@TestPropertySource(
-    properties = [
-        // Testcontainers-brukeren følger ikke {tenant}_{applikasjonsnavn}_db, så prefikset kan ikke utledes.
-        "novari.flyt.catalog.database.schema-prefix=",
-    ],
-)
-class ApplicationTest {
+class ApplicationTest : CatalogIntegrationTest() {
     @Autowired
     lateinit var context: ApplicationContext
 
@@ -132,6 +116,37 @@ class ApplicationTest {
     }
 
     @Test
+    fun `the value converting entity belongs to exactly one persistence unit`() {
+        assertThat(entityNamesOf("valueConvertingEntityManagerFactory")).contains(VALUE_CONVERSION_ENTITY)
+        listOf(
+            "ownSchemaEntityManagerFactory",
+            "integrationEntityManagerFactory",
+            "configurationEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(entityNamesOf(beanName))
+                .describedAs(beanName)
+                .doesNotContain(VALUE_CONVERSION_ENTITY)
+        }
+    }
+
+    /**
+     * Klienten er mapping-service, som ikke skal bygges eller deployes på nytt. Topic-navnet er
+     * derfor kontrakt, og det bygges av tjenestens egen konfigurasjon — ikke av noe klienten sender.
+     */
+    @Test
+    fun `the value converting request consumer listens on the topic mapping-service produces to`() {
+        val container =
+            context.getBean(
+                "valueConversionByIdRequestConsumer",
+                ConcurrentMessageListenerContainer::class.java,
+            )
+
+        assertThat(container.containerProperties.topics)
+            .containsExactly("test-no.flyt.request.value-converting.by.value-converting-id")
+    }
+
+    @Test
     fun `each envers-audited schema has its own revinfo sequence`() {
         listOf(schemas.configuration, schemas.valueConverting).forEach { schema ->
             context.getBean("configurationDataSource", DataSource::class.java).connection.use { connection ->
@@ -167,6 +182,7 @@ class ApplicationTest {
 
     companion object {
         private const val REVISION_ENTITY = "ActorRevisionEntity"
+        private const val VALUE_CONVERSION_ENTITY = "ValueConversion"
 
         private val LEGACY_CHECKSUMS: Map<String, Map<String, Int>> =
             ApplicationTest::class.java
@@ -177,31 +193,5 @@ class ApplicationTest {
                 .map { it.split("|") }
                 .groupBy({ it[0] }, { it[1] to it[2].toInt() })
                 .mapValues { (_, entries) -> entries.toMap() }
-
-        @Container
-        @JvmStatic
-        val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:17-alpine")
-
-        // I drift oppretter pgerator dette skjemaet sammen med databasebrukeren. Ingen Flyway-konfigurasjon
-        // eier det, så testen må opprette det selv for å speile oppsettet appen møter.
-        @BeforeAll
-        @JvmStatic
-        fun createOwnSchema() {
-            DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { connection ->
-                connection.createStatement().use {
-                    it.execute("CREATE SCHEMA IF NOT EXISTS ${CatalogSchemas.OWN_SCHEMA}")
-                }
-            }
-        }
-
-        // @ServiceConnection bidrar med en JdbcConnectionDetails-bønne, ikke spring.datasource.*,
-        // og de fire datakildene bygges fra DataSourceProperties.
-        @DynamicPropertySource
-        @JvmStatic
-        fun datasourceProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url", postgres::getJdbcUrl)
-            registry.add("spring.datasource.username", postgres::getUsername)
-            registry.add("spring.datasource.password", postgres::getPassword)
-        }
     }
 }
