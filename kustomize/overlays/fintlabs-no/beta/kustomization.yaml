@@ -13,8 +13,46 @@ labels:
 patches:
   - patch: |-
       - op: replace
+        path: "/spec/kafka/acls/0/topic"
+        value: "fintlabs-no.flyt.*"
+      - op: replace
         path: "/spec/orgId"
         value: "fintlabs.no"
+      - op: replace
+        path: "/spec/ingress/routes/0/path"
+        value: "/beta/fintlabs-no/api/intern/value-convertings"
+      - op: add
+        path: "/spec/env/-"
+        value:
+          name: "novari.flyt.web-resource-server.security.api.internal.authorized-org-id-role-pairs-json"
+          value: |
+            {
+              "fintlabs.no":["USER"],
+              "vigo.no":["DEVELOPER", "USER"],
+              "novari.no":["DEVELOPER", "USER"]
+            }
+      - op: add
+        path: "/spec/env/-"
+        value:
+         name: "novari.kafka.topic.orgId"
+         value: "fintlabs-no"
+      - op: add
+        path: "/spec/env/-"
+        value:
+         name: "server.servlet.context-path"
+         value: "/beta/fintlabs-no"
+      - op: replace
+        path: "/spec/probes/startup/path"
+        value: "/beta/fintlabs-no/actuator/health"
+      - op: replace
+        path: "/spec/probes/readiness/path"
+        value: "/beta/fintlabs-no/actuator/health/readiness"
+      - op: replace
+        path: "/spec/probes/liveness/path"
+        value: "/beta/fintlabs-no/actuator/health/liveness"
+      - op: replace
+        path: "/spec/observability/metrics/path"
+        value: "/beta/fintlabs-no/actuator/prometheus"
 
     target:
       kind: Application

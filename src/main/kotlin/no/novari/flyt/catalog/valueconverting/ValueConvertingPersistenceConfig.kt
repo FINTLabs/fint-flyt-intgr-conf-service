@@ -1,6 +1,7 @@
 package no.novari.flyt.catalog.valueconverting
 
 import com.zaxxer.hikari.HikariDataSource
+import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import no.novari.flyt.catalog.database.catalogDataSource
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.DependsOn
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.orm.jpa.JpaTransactionManager
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean
+import org.springframework.orm.jpa.SharedEntityManagerCreator
 import org.springframework.transaction.PlatformTransactionManager
 import javax.sql.DataSource
 
@@ -55,4 +57,14 @@ class ValueConvertingPersistenceConfig {
     fun valueConvertingTransactionManager(
         @Qualifier("valueConvertingEntityManagerFactory") entityManagerFactory: EntityManagerFactory,
     ): PlatformTransactionManager = JpaTransactionManager(entityManagerFactory)
+
+    /**
+     * `EnversHistoryService` tar `EntityManager` i konstruktøren, og med fem persistence units må
+     * kilden navngis. Uten denne bønnen ville injiseringen enten vært flertydig eller falt tilbake
+     * på primærkandidaten, som peker på tjenestens tomme skjema.
+     */
+    @Bean
+    fun valueConvertingEntityManager(
+        @Qualifier("valueConvertingEntityManagerFactory") entityManagerFactory: EntityManagerFactory,
+    ): EntityManager = SharedEntityManagerCreator.createSharedEntityManager(entityManagerFactory)
 }

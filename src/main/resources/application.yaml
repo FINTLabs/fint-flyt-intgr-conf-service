@@ -1,11 +1,24 @@
 fint:
   application-id: fint-flyt-intgr-conf-service
 
+server:
+  error:
+    include-message: always
+
 spring:
   profiles:
     include:
       - flyt-logging
       - flyt-postgres
+      - flyt-kafka
+      - flyt-web-resource-server
+      - flyt-authorization-client
   output:
     ansi:
       enabled: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
