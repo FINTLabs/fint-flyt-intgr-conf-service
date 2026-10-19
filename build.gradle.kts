@@ -29,10 +29,6 @@ kotlin {
     jvmToolchain(25)
 }
 
-configurations {
-    compileOnly
-}
-
 repositories {
     mavenCentral()
     maven("https://repo.fintlabs.no/releases")
@@ -78,8 +74,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1")
-    compileOnly("org.springframework.security:spring-security-config")
-    compileOnly("org.springframework.security:spring-security-web")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("io.github.oshai:kotlin-logging-jvm:8.0.4")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -102,7 +96,6 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-core")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
-    testImplementation(kotlin("test"))
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
