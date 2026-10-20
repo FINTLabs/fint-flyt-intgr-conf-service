@@ -63,8 +63,17 @@ konsolidert — er det dette skjemaet de hører hjemme i, og primærkandidaten p
 
 ### Skjemanavn
 
-Skjemanavnene hører hjemme i konfigurasjon, ikke i kode: hver `DataSource` setter `hikari.schema`,
-og entitetene har ingen `@Table(schema = ...)`.
+Skjemanavnene hører hjemme i konfigurasjon, ikke i kode: hver persistence unit setter
+`hibernate.default_schema`, og entitetene har ingen `@Table(schema = ...)`. Hibernate kvalifiserer
+dermed alle tabellnavn med skjemaet, også Envers-tabellene og `revinfo`.
+
+Det holder ikke å la `search_path` velge skjemaet. Databasen nås gjennom en tilkoblingspooler i
+transaksjonsmodus (derav `prepareThreshold=0` i URL-en), der en serverforbindelse deles mellom
+klienter per transaksjon. `search_path` er sesjonstilstand og følger derfor ikke med fra
+`hikari.schema` til spørringen — den treffer i stedet det forrige klient etterlot, eller rollens
+standard, som er tjenestens eget, tomme skjema. `hikari.schema` er beholdt for ren JDBC, men
+ingenting i applikasjonen skal være avhengig av den. `ProductionLikeDatabaseTest` kjører
+applikasjonen gjennom PgBouncer med databasebruker, skjemaprefikser og grants som i drift.
 
 Alle fem skjemaene deler tenant-prefiks, så prefikset utledes fra databasebrukeren flaiserator
 setter, ved å fjerne tjenestens eget skjemanavn fra den. Utrullingen trenger dermed ingen
