@@ -1,12 +1,15 @@
 package no.novari.flyt.catalog.configuration
 
 import com.zaxxer.hikari.HikariDataSource
+import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
+import jakarta.validation.ValidatorFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import no.novari.flyt.catalog.database.catalogDataSource
 import no.novari.flyt.catalog.database.catalogEntityManagerFactory
 import no.novari.flyt.catalog.database.catalogFlyway
 import org.flywaydb.core.Flyway
+import org.hibernate.cfg.AvailableSettings
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -17,6 +20,7 @@ import org.springframework.context.annotation.DependsOn
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.orm.jpa.JpaTransactionManager
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean
+import org.springframework.orm.jpa.SharedEntityManagerCreator
 import org.springframework.transaction.PlatformTransactionManager
 import javax.sql.DataSource
 
@@ -45,6 +49,7 @@ class ConfigurationPersistenceConfig {
     fun configurationEntityManagerFactory(
         builder: EntityManagerFactoryBuilder,
         @Qualifier("configurationDataSource") dataSource: DataSource,
+        @Qualifier("configurationHibernateValidatorFactory") validatorFactory: ValidatorFactory,
         schemas: CatalogSchemas,
     ): LocalContainerEntityManagerFactoryBean =
         builder.catalogEntityManagerFactory(
@@ -56,7 +61,19 @@ class ConfigurationPersistenceConfig {
                     "no.novari.flyt.catalog.configuration",
                     "no.novari.flyt.audit.revision",
                 ),
+            // Erstatter HibernatePropertiesCustomizer-en configuration-service hadde, som ville gjeldt alle
+            // persistence units her.
+            properties = mapOf(AvailableSettings.JAKARTA_VALIDATION_FACTORY to validatorFactory),
         )
+
+    /**
+     * `EnversHistoryService` tar `EntityManager` i konstruktøren, og med fem persistence units må
+     * kilden navngis.
+     */
+    @Bean
+    fun configurationEntityManager(
+        @Qualifier("configurationEntityManagerFactory") entityManagerFactory: EntityManagerFactory,
+    ): EntityManager = SharedEntityManagerCreator.createSharedEntityManager(entityManagerFactory)
 
     @Bean
     fun configurationTransactionManager(

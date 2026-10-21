@@ -1,6 +1,7 @@
 package no.novari.flyt.catalog
 
 import jakarta.persistence.EntityManagerFactory
+import jakarta.validation.Validator
 import no.novari.flyt.catalog.database.CatalogSchemas
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
@@ -146,6 +147,52 @@ class ApplicationTest : CatalogIntegrationTest() {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        "Configuration",
+        "ObjectMapping",
+        "ValueMapping",
+        "InstanceCollectionReference",
+        "ObjectCollectionMapping",
+        "ObjectsFromCollectionMapping",
+        "ValueCollectionMapping",
+        "ValuesFromCollectionMapping",
+    )
+    fun `the configuration entities belong to exactly one persistence unit`(entityName: String) {
+        assertThat(entityNamesOf("configurationEntityManagerFactory")).contains(entityName)
+        listOf(
+            "ownSchemaEntityManagerFactory",
+            "integrationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(entityNamesOf(beanName))
+                .describedAs(beanName)
+                .doesNotContain(entityName)
+        }
+    }
+
+    /**
+     * Configuration-service byttet ut Spring Boots validator med sin egen. Her er den avgrenset til
+     * configuration-domenet, så MVC og de andre domenene fortsatt validerer slik de gjorde før.
+     */
+    @Test
+    fun `the configuration validator factory is used only by the configuration persistence unit`() {
+        val configurationValidatorFactory = context.getBean("configurationHibernateValidatorFactory")
+
+        assertThat(context.getBean(Validator::class.java))
+            .isSameAs(context.getBean("defaultValidator"))
+        assertThat(validationFactoryOf("configurationEntityManagerFactory"))
+            .isSameAs(configurationValidatorFactory)
+        listOf(
+            "integrationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(validationFactoryOf(beanName)).describedAs(beanName).isNotSameAs(configurationValidatorFactory)
+        }
+    }
+
     @Test
     fun `only the integration persistence unit skips bean validation on save`() {
         assertThat(validationModeOf("integrationEntityManagerFactory")).hasToString("NONE")
@@ -195,6 +242,8 @@ class ApplicationTest : CatalogIntegrationTest() {
         "integrationByIdRequestConsumer,           test-no.flyt.request.integration.by.integration-id",
         "integrationBySourceApplicationAndIntegrationIdRequestConsumer, test-no.flyt.request.integration.by.source-application-id-and-source-application-integration-id",
         "activeConfigurationIdRequestConsumer,     test-no.flyt.request.active-configuration-id.by.integration-id",
+        "configurationByConfigurationIdRequestConsumer, test-no.flyt.request.configuration.by.configuration-id",
+        "mappingByConfigurationIdRequestConsumer,  test-no.flyt.request.mapping.by.configuration-id",
     )
     fun `each consumer listens on the topic its clients produce to`(
         beanName: String,
@@ -232,6 +281,11 @@ class ApplicationTest : CatalogIntegrationTest() {
             "discovery" -> schemas.discovery
             else -> error("Ukjent skjema: $property")
         }
+
+    private fun validationFactoryOf(beanName: String): Any? =
+        context
+            .getBean(beanName, EntityManagerFactory::class.java)
+            .properties[AvailableSettings.JAKARTA_VALIDATION_FACTORY]
 
     private fun validationModeOf(beanName: String): Any? =
         context
