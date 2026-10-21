@@ -16,8 +16,8 @@ import no.novari.flyt.catalog.integration.application.IntegrationUpdateValidatio
 import no.novari.flyt.catalog.integration.persistence.entity.Integration
 import no.novari.flyt.catalog.integration.validation.IntegrationValidationContext
 import no.novari.flyt.catalog.integration.validation.IntegrationValidatorFactory
-import no.novari.flyt.catalog.integration.validation.ValidationErrorsFormattingService
 import no.novari.flyt.catalog.integration.web.GlobalExceptionHandler
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.hibernate.validator.HibernateValidator

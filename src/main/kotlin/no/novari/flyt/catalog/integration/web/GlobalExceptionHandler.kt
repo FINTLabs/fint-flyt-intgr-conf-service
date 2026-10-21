@@ -2,7 +2,7 @@ package no.novari.flyt.catalog.integration.web
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import no.novari.flyt.catalog.integration.api.IntegrationController
-import no.novari.flyt.catalog.integration.validation.ValidationErrorsFormattingService
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.converter.HttpMessageNotReadableException

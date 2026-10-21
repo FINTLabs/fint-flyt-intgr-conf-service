@@ -1,4 +1,4 @@
-package no.novari.flyt.catalog.discovery.validation
+package no.novari.flyt.catalog.validation
 
 import jakarta.validation.ConstraintViolation
 import org.springframework.stereotype.Service

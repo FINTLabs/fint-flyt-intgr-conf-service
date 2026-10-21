@@ -14,11 +14,11 @@ import no.novari.flyt.catalog.configuration.model.configuration.entities.ValueMa
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
 import no.novari.flyt.catalog.configuration.validation.CouldNotFindIntegrationException
-import no.novari.flyt.catalog.configuration.validation.ValidationErrorsFormattingService
 import no.novari.flyt.catalog.contract.fixtures.CatalogContractFixtures
 import no.novari.flyt.catalog.contract.fixtures.FixtureObjectMapper
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixture
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixtureRunner
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.assertj.core.api.Assertions.assertThat
 import org.hibernate.validator.HibernateValidator
 import org.hibernate.validator.HibernateValidatorFactory

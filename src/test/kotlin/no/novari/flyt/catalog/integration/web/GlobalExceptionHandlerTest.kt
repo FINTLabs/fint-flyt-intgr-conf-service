@@ -1,7 +1,7 @@
 package no.novari.flyt.catalog.integration.web
 
 import no.novari.flyt.catalog.integration.api.dto.IntegrationPostDto
-import no.novari.flyt.catalog.integration.validation.ValidationErrorsFormattingService
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

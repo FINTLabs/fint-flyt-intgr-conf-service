@@ -12,7 +12,7 @@ import jakarta.validation.Validator
 import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
-import no.novari.flyt.catalog.discovery.validation.ValidationErrorsFormattingService
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
 import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.springframework.http.HttpStatus

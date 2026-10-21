@@ -12,8 +12,8 @@ import no.novari.flyt.catalog.configuration.model.configuration.dtos.Configurati
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationPageResponse
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationPatchDto
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
-import no.novari.flyt.catalog.configuration.validation.ValidationErrorsFormattingService
 import no.novari.flyt.catalog.configuration.validation.groups.Completed
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort

@@ -1,4 +1,4 @@
-package no.novari.flyt.catalog.integration.validation.constraints
+package no.novari.flyt.catalog.validation
 
 import jakarta.validation.ConstraintValidator
 import jakarta.validation.ConstraintValidatorContext

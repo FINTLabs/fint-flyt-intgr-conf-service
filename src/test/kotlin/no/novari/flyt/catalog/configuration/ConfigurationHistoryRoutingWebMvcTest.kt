@@ -6,7 +6,7 @@ import no.novari.flyt.audit.history.HistoryEntryDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationSnapshot
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
-import no.novari.flyt.catalog.configuration.validation.ValidationErrorsFormattingService
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith

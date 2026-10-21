@@ -1,6 +1,7 @@
 package no.novari.flyt.catalog.configuration.validation.constraints
 
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
+import no.novari.flyt.catalog.validation.HibernateConstraintValidator
 
 class IntegrationAndMetadataMatchesValidator : HibernateConstraintValidator<IntegrationAndMetadataMatches, Any> {
     override fun isValid(

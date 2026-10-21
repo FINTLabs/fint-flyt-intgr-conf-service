@@ -3,6 +3,7 @@ package no.novari.flyt.catalog.configuration.validation.constraints
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ValueMappingDto
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
 import no.novari.flyt.catalog.configuration.validation.instancereference.InstanceValueKeyExtractionService
+import no.novari.flyt.catalog.validation.HibernateConstraintValidator
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext
 import org.springframework.stereotype.Service
 

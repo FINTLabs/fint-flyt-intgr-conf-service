@@ -1,6 +1,7 @@
 package no.novari.flyt.catalog.integration.validation.constraints
 
 import no.novari.flyt.catalog.integration.validation.IntegrationValidationContext
+import no.novari.flyt.catalog.validation.HibernateConstraintValidator
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext
 
 class ReferencedConfigurationIsForIntegrationValidator :

@@ -2,8 +2,8 @@ package no.novari.flyt.catalog.integration.application
 
 import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 import no.novari.flyt.catalog.integration.validation.IntegrationValidatorFactory
-import no.novari.flyt.catalog.integration.validation.ValidationErrorsFormattingService
 import no.novari.flyt.catalog.integration.web.UnprocessableEntityException
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.springframework.stereotype.Service
 
 @Service

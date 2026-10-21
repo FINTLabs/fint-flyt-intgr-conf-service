@@ -1,4 +1,4 @@
-package no.novari.flyt.catalog.discovery.validation
+package no.novari.flyt.catalog.validation
 
 import jakarta.validation.ConstraintViolation
 import jakarta.validation.Path
@@ -14,6 +14,13 @@ class ValidationErrorsFormattingServiceTest {
     @BeforeEach
     fun setUp() {
         service = ValidationErrorsFormattingService()
+    }
+
+    @Test
+    fun `formats an empty violation set`() {
+        val result = service.format(emptySet<ConstraintViolation<Any>>())
+
+        assertEquals("Validation error: []", result)
     }
 
     @Test
