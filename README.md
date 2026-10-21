@@ -3,6 +3,8 @@
 Spring Boot-tjeneste som samler katalogdomenet i FINT Flyt — integration, configuration,
 value converting og discovery — i én utrullbar enhet.
 
+Arkitekturen er beskrevet med C4-diagrammer i [docs/architecture](docs/architecture/README.md).
+
 ## Pakkestruktur
 
 Ett Gradle-modul med én pakke per domene under `no.novari.flyt.catalog`:
