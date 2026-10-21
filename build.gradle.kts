@@ -55,6 +55,7 @@ sourceSets {
 extra["commons-lang3.version"] = "3.21.0"
 extra["jackson-bom.version"] = "2.22.4"
 extra["log4j2.version"] = "2.26.1"
+extra["netty.version"] = "4.1.139.Final"
 extra["postgresql.version"] = "42.7.12"
 extra["tomcat.version"] = "10.1.59"
 
