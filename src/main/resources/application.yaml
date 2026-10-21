@@ -4,6 +4,9 @@ fint:
 server:
   error:
     include-message: always
+  # Arvet fra discovery-service, som har hevet grensen fra Tomcats 8KB siden 2022. Begrunnelsen står
+  # ingen steder, men uten den kan en request som i dag får 200 få 431 etter cutover.
+  max-http-request-header-size: 40KB
 
 spring:
   profiles:
