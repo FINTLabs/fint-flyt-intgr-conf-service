@@ -21,57 +21,6 @@ import java.time.Duration
 @Configuration
 class ConfigurationRequestConsumerConfiguration {
     @Bean
-    fun configurationByConfigurationIdRequestConsumer(
-        requestTopicService: RequestTopicService,
-        requestListenerContainerFactory: RequestListenerContainerFactory,
-        configurationService: ConfigurationService,
-        errorHandlerFactory: ErrorHandlerFactory,
-    ): ConcurrentMessageListenerContainer<String, Long> {
-        val requestTopicNameParameters =
-            RequestTopicNameParameters
-                .builder()
-                .topicNamePrefixParameters(
-                    TopicNamePrefixParameters
-                        .stepBuilder()
-                        .orgIdApplicationDefault()
-                        .domainContextApplicationDefault()
-                        .build(),
-                ).resourceName("configuration")
-                .parameterName("configuration-id")
-                .build()
-
-        requestTopicService.createOrModifyTopic(
-            requestTopicNameParameters,
-            RequestTopicConfiguration.builder().retentionTime(RETENTION_TIME).build(),
-        )
-
-        val errorHandlerConfiguration =
-            ErrorHandlerConfiguration
-                .stepBuilder<ConfigurationDto>()
-                .noRetries()
-                .skipFailedRecords()
-                .build()
-
-        return requestListenerContainerFactory
-            .createRecordConsumerFactory(
-                Long::class.java,
-                ConfigurationDto::class.java,
-                { consumerRecord: ConsumerRecord<String, Long> ->
-                    ReplyProducerRecord
-                        .builder<ConfigurationDto>()
-                        .value(configurationService.findById(consumerRecord.value(), true))
-                        .build()
-                },
-                RequestListenerConfiguration
-                    .stepBuilder(Long::class.java)
-                    .maxPollRecordsKafkaDefault()
-                    .maxPollIntervalKafkaDefault()
-                    .build(),
-                errorHandlerFactory.createErrorHandler(errorHandlerConfiguration),
-            ).createContainer(requestTopicNameParameters)
-    }
-
-    @Bean
     fun mappingByConfigurationIdRequestConsumer(
         requestTopicService: RequestTopicService,
         requestListenerContainerFactory: RequestListenerContainerFactory,

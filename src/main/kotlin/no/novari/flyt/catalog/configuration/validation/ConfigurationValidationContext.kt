@@ -1,13 +1,13 @@
 package no.novari.flyt.catalog.configuration.validation
 
 import jakarta.validation.Payload
-import no.novari.flyt.catalog.configuration.model.integration.Integration
-import no.novari.flyt.catalog.configuration.model.metadata.InstanceValueMetadata
-import no.novari.flyt.catalog.configuration.model.metadata.IntegrationMetadata
+import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
+import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
+import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 
 data class ConfigurationValidationContext(
-    var integration: Integration? = null,
-    var metadata: IntegrationMetadata? = null,
+    var integration: IntegrationDto? = null,
+    var metadata: IntegrationMetadataDto? = null,
     var instanceValueTypePerKey: Map<String, InstanceValueMetadata.Type> = emptyMap(),
 ) : Payload {
     companion object {
@@ -16,13 +16,13 @@ data class ConfigurationValidationContext(
     }
 
     class Builder {
-        private var integration: Integration? = null
-        private var metadata: IntegrationMetadata? = null
+        private var integration: IntegrationDto? = null
+        private var metadata: IntegrationMetadataDto? = null
         private var instanceValueTypePerKey: Map<String, InstanceValueMetadata.Type> = emptyMap()
 
-        fun integration(integration: Integration?) = apply { this.integration = integration }
+        fun integration(integration: IntegrationDto?) = apply { this.integration = integration }
 
-        fun metadata(metadata: IntegrationMetadata?) = apply { this.metadata = metadata }
+        fun metadata(metadata: IntegrationMetadataDto?) = apply { this.metadata = metadata }
 
         fun instanceValueTypePerKey(instanceValueTypePerKey: Map<String, InstanceValueMetadata.Type>?) =
             apply { this.instanceValueTypePerKey = instanceValueTypePerKey ?: emptyMap() }

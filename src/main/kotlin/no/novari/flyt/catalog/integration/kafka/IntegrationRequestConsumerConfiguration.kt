@@ -21,56 +21,6 @@ import java.time.Duration
 @Configuration
 class IntegrationRequestConsumerConfiguration {
     @Bean
-    fun integrationByIdRequestConsumer(
-        requestListenerContainerFactory: RequestListenerContainerFactory,
-        requestTopicService: RequestTopicService,
-        integrationService: IntegrationService,
-        errorHandlerFactory: ErrorHandlerFactory,
-    ): ConcurrentMessageListenerContainer<String, Long> {
-        val requestTopicNameParameters =
-            RequestTopicNameParameters
-                .builder()
-                .topicNamePrefixParameters(
-                    TopicNamePrefixParameters
-                        .stepBuilder()
-                        .orgIdApplicationDefault()
-                        .domainContextApplicationDefault()
-                        .build(),
-                ).resourceName("integration")
-                .parameterName("integration-id")
-                .build()
-
-        requestTopicService.createOrModifyTopic(
-            requestTopicNameParameters,
-            RequestTopicConfiguration.builder().retentionTime(RETENTION_TIME).build(),
-        )
-
-        return requestListenerContainerFactory
-            .createRecordConsumerFactory(
-                Long::class.java,
-                IntegrationDto::class.java,
-                { consumerRecord: ConsumerRecord<String, Long> ->
-                    ReplyProducerRecord
-                        .builder<IntegrationDto>()
-                        .value(integrationService.findById(consumerRecord.value()))
-                        .build()
-                },
-                RequestListenerConfiguration
-                    .stepBuilder(Long::class.java)
-                    .maxPollRecordsKafkaDefault()
-                    .maxPollIntervalKafkaDefault()
-                    .build(),
-                errorHandlerFactory.createErrorHandler(
-                    ErrorHandlerConfiguration
-                        .stepBuilder<Long>()
-                        .noRetries()
-                        .skipFailedRecords()
-                        .build(),
-                ),
-            ).createContainer(requestTopicNameParameters)
-    }
-
-    @Bean
     fun integrationBySourceApplicationAndIntegrationIdRequestConsumer(
         requestListenerContainerFactory: RequestListenerContainerFactory,
         requestTopicService: RequestTopicService,

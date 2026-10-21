@@ -2,13 +2,10 @@ package no.novari.flyt.catalog.configuration.validation
 
 import jakarta.validation.Validator
 import jakarta.validation.ValidatorFactory
-import no.novari.flyt.catalog.configuration.kafka.InstanceMetadataRequestProducerService
-import no.novari.flyt.catalog.configuration.kafka.IntegrationRequestProducerService
-import no.novari.flyt.catalog.configuration.kafka.MetadataRequestProducerService
-import no.novari.flyt.catalog.configuration.model.integration.Integration
-import no.novari.flyt.catalog.configuration.model.metadata.InstanceMetadataContent
-import no.novari.flyt.catalog.configuration.model.metadata.InstanceValueMetadata
-import no.novari.flyt.catalog.configuration.model.metadata.IntegrationMetadata
+import no.novari.flyt.catalog.discovery.IntegrationMetadataService
+import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
+import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
+import no.novari.flyt.catalog.integration.application.IntegrationService
 import org.hibernate.validator.HibernateValidatorFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
@@ -17,9 +14,8 @@ import java.util.AbstractMap
 @Service
 class ConfigurationValidatorFactory(
     @Qualifier("configurationHibernateValidatorFactory") private val validatorFactory: ValidatorFactory,
-    private val integrationRequestProducerService: IntegrationRequestProducerService,
-    private val metadataRequestProducerService: MetadataRequestProducerService,
-    private val instanceMetadataRequestProducerService: InstanceMetadataRequestProducerService,
+    private val integrationService: IntegrationService,
+    private val integrationMetadataService: IntegrationMetadataService,
 ) {
     fun getValidator(
         integrationId: Long,
@@ -35,16 +31,16 @@ class ConfigurationValidatorFactory(
         integrationId: Long,
         metadataId: Long,
     ): ConfigurationValidationContext {
-        val integration: Integration =
-            integrationRequestProducerService.get(integrationId)
+        val integration =
+            integrationService.findById(integrationId)
                 ?: throw CouldNotFindIntegrationException(integrationId)
 
-        val metadata: IntegrationMetadata =
-            metadataRequestProducerService.get(metadataId)
+        val metadata =
+            integrationMetadataService.getById(metadataId)
                 ?: throw CouldNotFindMetadataException(metadataId)
 
-        val instanceMetadata: InstanceMetadataContent =
-            instanceMetadataRequestProducerService.get(metadataId)
+        val instanceMetadata =
+            metadata.instanceMetadata
                 ?: throw CouldNotFindInstanceMetadataException(metadataId)
 
         return ConfigurationValidationContext
@@ -56,13 +52,13 @@ class ConfigurationValidatorFactory(
     }
 
     private fun getInstanceValueTypePerKey(
-        instanceMetadata: InstanceMetadataContent,
+        instanceMetadata: InstanceMetadataContentDto,
     ): Map<String, InstanceValueMetadata.Type> =
         getInstanceValueTypePerKeyEntries(instanceMetadata)
             .associate { entry -> entry.key to entry.value }
 
     private fun getInstanceValueTypePerKeyEntries(
-        instanceMetadataContent: InstanceMetadataContent,
+        instanceMetadataContent: InstanceMetadataContentDto,
     ): List<AbstractMap.SimpleEntry<String, InstanceValueMetadata.Type>> {
         val categoryEntries =
             instanceMetadataContent.categories

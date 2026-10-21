@@ -2,10 +2,10 @@ package no.novari.flyt.catalog.configuration.validation.constraints
 
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ValueMappingDto
 import no.novari.flyt.catalog.configuration.model.configuration.entities.ValueMapping
-import no.novari.flyt.catalog.configuration.model.metadata.InstanceValueMetadata
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
 import no.novari.flyt.catalog.configuration.validation.instancereference.InstanceValueKeyExtractionService
 import no.novari.flyt.catalog.configuration.validation.instancereference.InstanceValueTypeCompatibilityValidator
+import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

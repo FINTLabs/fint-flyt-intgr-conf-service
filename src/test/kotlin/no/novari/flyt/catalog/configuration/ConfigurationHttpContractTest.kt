@@ -11,8 +11,6 @@ import no.novari.flyt.catalog.configuration.model.configuration.dtos.Configurati
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ObjectMappingDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ValueMappingDto
 import no.novari.flyt.catalog.configuration.model.configuration.entities.ValueMapping
-import no.novari.flyt.catalog.configuration.model.integration.Integration
-import no.novari.flyt.catalog.configuration.model.metadata.IntegrationMetadata
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
 import no.novari.flyt.catalog.configuration.validation.CouldNotFindIntegrationException
@@ -292,7 +290,7 @@ class ConfigurationHttpContractTest {
     /**
      * Valideringsmeldingene er kontrakten frontend viser brukeren, så validatoren må være ekte.
      * Den bygges slik ConfigurationValidatorFactory gjør det i drift - med en
-     * ConfigurationValidationContext som payload - bare uten Kafka-oppslagene som ellers fyller den.
+     * ConfigurationValidationContext som payload - bare uten oppslagene mot integration og discovery som ellers fyller den.
      */
     private fun stubRealValidator() {
         whenever(configurationValidatorFactory.getValidator(any(), any())).thenReturn(realValidator())
@@ -308,17 +306,9 @@ class ConfigurationHttpContractTest {
             .constraintValidatorPayload(
                 ConfigurationValidationContext
                     .builder()
-                    .integration(
-                        Integration(
-                            sourceApplicationId = 1L,
-                            sourceApplicationIntegrationId = "kildeapp-integrasjon",
-                        ),
-                    ).metadata(
-                        IntegrationMetadata(
-                            sourceApplicationId = 1L,
-                            sourceApplicationIntegrationId = "kildeapp-integrasjon",
-                        ),
-                    ).build(),
+                    .integration(integrationDto())
+                    .metadata(integrationMetadataDto())
+                    .build(),
             ).validator
 
     private fun configuration(

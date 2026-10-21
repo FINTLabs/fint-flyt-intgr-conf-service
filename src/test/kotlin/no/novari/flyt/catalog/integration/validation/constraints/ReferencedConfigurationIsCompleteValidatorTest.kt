@@ -1,6 +1,6 @@
 package no.novari.flyt.catalog.integration.validation.constraints
 
-import no.novari.flyt.catalog.integration.api.dto.ConfigurationDto
+import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationDto
 import no.novari.flyt.catalog.integration.validation.IntegrationValidationContext
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext
 import org.junit.jupiter.api.Assertions.assertFalse

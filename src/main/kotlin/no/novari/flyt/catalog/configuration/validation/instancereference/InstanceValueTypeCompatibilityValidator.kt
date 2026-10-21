@@ -2,7 +2,7 @@ package no.novari.flyt.catalog.configuration.validation.instancereference
 
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ValueMappingDto
 import no.novari.flyt.catalog.configuration.model.configuration.entities.ValueMapping
-import no.novari.flyt.catalog.configuration.model.metadata.InstanceValueMetadata
+import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
 import java.util.AbstractMap
 
 interface InstanceValueTypeCompatibilityValidator {

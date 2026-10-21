@@ -15,38 +15,14 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Fastholder payloadene på de to request/reply-kontraktene configuration-domenet betjener.
- *
- * `request.mapping.by.configuration-id` må bestå etter sammenslåingen - mapping-service er klient.
- * `request.configuration.by.configuration-id` opphører når integration- og configuration-domenene
- * havner i samme tjeneste, men er i bruk fram til da, og fastholdes derfor på lik linje.
+ * Fastholder payloadene på `request.mapping.by.configuration-id`, som configuration-domenet betjener
+ * for mapping-service.
  *
  * Hver rolle testes i den retningen tjenesten faktisk bruker den: requesten deserialiseres, svaret
  * serialiseres.
  */
 class ConfigurationKafkaContractTest {
     private val runner = KafkaPayloadFixtureRunner()
-
-    @Test
-    fun `konfigurasjonsrequesten er en bar Long`() {
-        val fixture = CatalogContractFixtures.kafkaById("configuration/request/configuration-by-id")
-
-        assertThat(runner.deserialize<Long>(fixture)).isEqualTo(1L)
-    }
-
-    @Test
-    fun `konfigurasjonssvaret er uten mapping`() {
-        val fixture = CatalogContractFixtures.kafkaById("configuration/reply/configuration-by-id")
-
-        runner.verifySerialization(fixture, configuration())
-    }
-
-    @Test
-    fun `ukjent konfigurasjon gir tom payload`() {
-        val fixture = CatalogContractFixtures.kafkaById("configuration/reply/configuration-by-id-not-found")
-
-        runner.verifySerialization(fixture, null)
-    }
 
     @Test
     fun `mappingrequesten er en bar Long`() {
@@ -68,23 +44,6 @@ class ConfigurationKafkaContractTest {
 
         runner.verifySerialization(fixture, null)
     }
-
-    private fun configuration() =
-        ConfigurationDto(
-            id = 1L,
-            integrationId = 10L,
-            integrationMetadataId = 100L,
-            completed = false,
-            comment = "Kommentar",
-            version = 1,
-            mapping = null,
-            createdAt = Instant.parse("2026-01-15T09:00:00Z"),
-            createdBy = FIRST_ACTOR_OID.toString(),
-            createdByActor = Actor.User(FIRST_ACTOR_OID),
-            lastModifiedAt = Instant.parse("2026-02-20T13:30:00Z"),
-            lastModifiedBy = SECOND_ACTOR_OID.toString(),
-            lastModifiedByActor = Actor.User(SECOND_ACTOR_OID),
-        )
 
     private fun mappingTree() =
         ObjectMappingDto(
@@ -128,9 +87,4 @@ class ConfigurationKafkaContractTest {
                         ),
                 ),
         )
-
-    private companion object {
-        private val FIRST_ACTOR_OID: UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
-        private val SECOND_ACTOR_OID: UUID = UUID.fromString("22222222-2222-2222-2222-222222222222")
-    }
 }

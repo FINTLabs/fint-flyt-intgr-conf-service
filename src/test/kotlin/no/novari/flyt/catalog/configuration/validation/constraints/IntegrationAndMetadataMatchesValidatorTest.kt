@@ -1,8 +1,8 @@
 package no.novari.flyt.catalog.configuration.validation.constraints
 
+import no.novari.flyt.catalog.configuration.integrationDto
+import no.novari.flyt.catalog.configuration.integrationMetadataDto
 import no.novari.flyt.catalog.configuration.model.configuration.entities.Configuration
-import no.novari.flyt.catalog.configuration.model.integration.Integration
-import no.novari.flyt.catalog.configuration.model.metadata.IntegrationMetadata
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -37,19 +37,9 @@ class IntegrationAndMetadataMatchesValidatorTest {
         val context =
             ConfigurationValidationContext
                 .builder()
-                .integration(
-                    Integration
-                        .builder()
-                        .sourceApplicationId(integrationSaId)
-                        .sourceApplicationIntegrationId(integrationSaiId)
-                        .build(),
-                ).metadata(
-                    IntegrationMetadata
-                        .builder()
-                        .sourceApplicationId(metadataSaId)
-                        .sourceApplicationIntegrationId(metadataSaiId)
-                        .build(),
-                ).build()
+                .integration(integrationDto(integrationSaId, integrationSaiId))
+                .metadata(integrationMetadataDto(metadataSaId, metadataSaiId))
+                .build()
 
         val hibernateContext: HibernateConstraintValidatorContext = mock()
         whenever(hibernateContext.getConstraintValidatorPayload(ConfigurationValidationContext::class.java))

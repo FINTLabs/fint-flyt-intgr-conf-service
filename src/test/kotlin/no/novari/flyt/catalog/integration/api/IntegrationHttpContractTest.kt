@@ -3,11 +3,11 @@ package no.novari.flyt.catalog.integration.api
 import jakarta.validation.Validation
 import jakarta.validation.Validator
 import no.novari.flyt.audit.actor.Actor
+import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationDto
 import no.novari.flyt.catalog.contract.fixtures.CatalogContractFixtures
 import no.novari.flyt.catalog.contract.fixtures.FixtureObjectMapper
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixture
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixtureRunner
-import no.novari.flyt.catalog.integration.api.dto.ConfigurationDto
 import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 import no.novari.flyt.catalog.integration.api.dto.IntegrationPatchDto
 import no.novari.flyt.catalog.integration.api.dto.IntegrationPostDto

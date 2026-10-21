@@ -2,12 +2,11 @@ package no.novari.flyt.catalog.configuration.validation
 
 import jakarta.validation.Validator
 import jakarta.validation.ValidatorFactory
-import no.novari.flyt.catalog.configuration.kafka.InstanceMetadataRequestProducerService
-import no.novari.flyt.catalog.configuration.kafka.IntegrationRequestProducerService
-import no.novari.flyt.catalog.configuration.kafka.MetadataRequestProducerService
-import no.novari.flyt.catalog.configuration.model.integration.Integration
-import no.novari.flyt.catalog.configuration.model.metadata.InstanceMetadataContent
-import no.novari.flyt.catalog.configuration.model.metadata.IntegrationMetadata
+import no.novari.flyt.catalog.configuration.integrationDto
+import no.novari.flyt.catalog.configuration.integrationMetadataDto
+import no.novari.flyt.catalog.discovery.IntegrationMetadataService
+import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
+import no.novari.flyt.catalog.integration.application.IntegrationService
 import org.hibernate.validator.HibernateValidatorContext
 import org.hibernate.validator.HibernateValidatorFactory
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -21,27 +20,21 @@ import org.mockito.kotlin.whenever
 
 class ConfigurationValidatorFactoryTest {
     private lateinit var validatorFactory: ValidatorFactory
-    private lateinit var integrationRequestProducerService: IntegrationRequestProducerService
-    private lateinit var metadataRequestProducerService: MetadataRequestProducerService
-    private lateinit var instanceMetadataRequestProducerService: InstanceMetadataRequestProducerService
+    private lateinit var integrationService: IntegrationService
+    private lateinit var integrationMetadataService: IntegrationMetadataService
 
     private lateinit var configurationValidatorFactory: ConfigurationValidatorFactory
 
     @BeforeEach
     fun setUp() {
-        integrationRequestProducerService =
-            mock(defaultAnswer = Answers.RETURNS_DEEP_STUBS)
-        metadataRequestProducerService =
-            mock(defaultAnswer = Answers.RETURNS_DEEP_STUBS)
-        instanceMetadataRequestProducerService =
-            mock(defaultAnswer = Answers.RETURNS_DEEP_STUBS)
+        integrationService = mock()
+        integrationMetadataService = mock()
         validatorFactory = mock(defaultAnswer = Answers.RETURNS_DEEP_STUBS)
         configurationValidatorFactory =
             ConfigurationValidatorFactory(
                 validatorFactory,
-                integrationRequestProducerService,
-                metadataRequestProducerService,
-                instanceMetadataRequestProducerService,
+                integrationService,
+                integrationMetadataService,
             )
 
         val hibernateValidatorFactory: HibernateValidatorFactory = mock()
@@ -56,37 +49,9 @@ class ConfigurationValidatorFactoryTest {
 
     @Test
     fun `getValidator builds a validator from integration and metadata context`() {
-        val mockIntegration =
-            Integration
-                .builder()
-                .sourceApplicationId(1L)
-                .sourceApplicationIntegrationId("id")
-                .destination("destination")
-                .state(Integration.State.ACTIVE)
-                .activeConfigurationId(100L)
-                .build()
-
-        val mockMetadata =
-            IntegrationMetadata
-                .builder()
-                .sourceApplicationId(1L)
-                .sourceApplicationIntegrationId("id")
-                .sourceApplicationIntegrationUri("uri")
-                .integrationDisplayName("name")
-                .version(1L)
-                .build()
-
-        val mockInstanceMetadata =
-            InstanceMetadataContent
-                .builder()
-                .categories(emptyList())
-                .instanceObjectCollectionMetadata(emptyList())
-                .instanceValueMetadata(emptyList())
-                .build()
-
-        whenever(integrationRequestProducerService.get(any())).thenReturn(mockIntegration)
-        whenever(metadataRequestProducerService.get(any())).thenReturn(mockMetadata)
-        whenever(instanceMetadataRequestProducerService.get(any())).thenReturn(mockInstanceMetadata)
+        whenever(integrationService.findById(any())).thenReturn(integrationDto())
+        whenever(integrationMetadataService.getById(any()))
+            .thenReturn(integrationMetadataDto(instanceMetadata = InstanceMetadataContentDto()))
 
         val result = configurationValidatorFactory.getValidator(1L, 1L)
 
@@ -95,7 +60,7 @@ class ConfigurationValidatorFactoryTest {
 
     @Test
     fun `getValidator throws when the integration is not found`() {
-        whenever(integrationRequestProducerService.get(any())).thenReturn(null)
+        whenever(integrationService.findById(any())).thenReturn(null)
 
         assertThrows(CouldNotFindIntegrationException::class.java) {
             configurationValidatorFactory.getValidator(1L, 1L)
@@ -104,18 +69,8 @@ class ConfigurationValidatorFactoryTest {
 
     @Test
     fun `getValidator throws when the metadata is not found`() {
-        val mockIntegration =
-            Integration
-                .builder()
-                .sourceApplicationId(1L)
-                .sourceApplicationIntegrationId("id")
-                .destination("destination")
-                .state(Integration.State.ACTIVE)
-                .activeConfigurationId(100L)
-                .build()
-
-        whenever(integrationRequestProducerService.get(any())).thenReturn(mockIntegration)
-        whenever(metadataRequestProducerService.get(any())).thenReturn(null)
+        whenever(integrationService.findById(any())).thenReturn(integrationDto())
+        whenever(integrationMetadataService.getById(any())).thenReturn(null)
 
         assertThrows(CouldNotFindMetadataException::class.java) {
             configurationValidatorFactory.getValidator(1L, 1L)
@@ -124,29 +79,8 @@ class ConfigurationValidatorFactoryTest {
 
     @Test
     fun `getValidator throws when the instance metadata is not found`() {
-        val mockIntegration =
-            Integration
-                .builder()
-                .sourceApplicationId(1L)
-                .sourceApplicationIntegrationId("id")
-                .destination("destination")
-                .state(Integration.State.ACTIVE)
-                .activeConfigurationId(100L)
-                .build()
-
-        val mockMetadata =
-            IntegrationMetadata
-                .builder()
-                .sourceApplicationId(1L)
-                .sourceApplicationIntegrationId("id")
-                .sourceApplicationIntegrationUri("uri")
-                .integrationDisplayName("name")
-                .version(1L)
-                .build()
-
-        whenever(integrationRequestProducerService.get(any())).thenReturn(mockIntegration)
-        whenever(metadataRequestProducerService.get(any())).thenReturn(mockMetadata)
-        whenever(instanceMetadataRequestProducerService.get(any())).thenReturn(null)
+        whenever(integrationService.findById(any())).thenReturn(integrationDto())
+        whenever(integrationMetadataService.getById(any())).thenReturn(integrationMetadataDto(instanceMetadata = null))
 
         assertThrows(CouldNotFindInstanceMetadataException::class.java) {
             configurationValidatorFactory.getValidator(1L, 1L)

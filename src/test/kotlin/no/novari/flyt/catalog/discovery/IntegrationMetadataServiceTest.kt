@@ -122,28 +122,6 @@ class IntegrationMetadataServiceTest {
     }
 
     @Test
-    fun `gets instance metadata by id`() {
-        val id = 1L
-        val instanceDto = InstanceMetadataContentDto()
-        val dtoWithInstanceMetadata = validIntegrationMetadataDto(instanceMetadata = instanceDto)
-        whenever(integrationMetadataRepository.findById(id)).thenReturn(java.util.Optional.of(entity))
-        whenever(integrationMetadataMappingService.toDto(entity)).thenReturn(dtoWithInstanceMetadata)
-
-        val result = service.getInstanceMetadataById(id)
-
-        assertEquals(instanceDto, result)
-    }
-
-    @Test
-    fun `returns null instance metadata when entity does not exist`() {
-        whenever(integrationMetadataRepository.findById(1L)).thenReturn(java.util.Optional.empty())
-
-        val result = service.getInstanceMetadataById(1L)
-
-        assertNull(result)
-    }
-
-    @Test
     fun `gets integration metadata by id`() {
         whenever(integrationMetadataRepository.findById(1L)).thenReturn(java.util.Optional.of(entity))
         whenever(integrationMetadataMappingService.toDto(entity)).thenReturn(dto)

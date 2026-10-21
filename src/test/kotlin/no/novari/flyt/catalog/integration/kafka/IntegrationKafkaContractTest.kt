@@ -12,39 +12,14 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Fastholder payloadene på de tre request/reply-kontraktene integration-domenet betjener.
+ * Fastholder payloadene på de to request/reply-kontraktene integration-domenet betjener.
  *
- * To av dem må bestå etter sammenslåingen:
  * `request.integration.by.source-application-id-and-source-application-integration-id` har ni
  * gateway-repoer som klienter, og `request.active-configuration-id.by.integration-id` betjener
  * mapping-service. Ingen av dem skal måtte bygges eller deployes på nytt.
- *
- * `request.integration.by.integration-id` opphører når integration- og configuration-domenene
- * havner i samme tjeneste, men er i bruk fram til da.
  */
 class IntegrationKafkaContractTest {
     private val runner = KafkaPayloadFixtureRunner()
-
-    @Test
-    fun `integrasjonsrequesten er en bar Long`() {
-        val fixture = CatalogContractFixtures.kafkaById("integration/request/integration-by-id")
-
-        assertThat(runner.deserialize<Long>(fixture)).isEqualTo(1L)
-    }
-
-    @Test
-    fun `integrasjonssvaret har activeConfigurationId som tall`() {
-        val fixture = CatalogContractFixtures.kafkaById("integration/reply/integration-by-id")
-
-        runner.verifySerialization(fixture, integration())
-    }
-
-    @Test
-    fun `ukjent integrasjon gir tom payload`() {
-        val fixture = CatalogContractFixtures.kafkaById("integration/reply/integration-by-id-not-found")
-
-        runner.verifySerialization(fixture, null)
-    }
 
     @Test
     fun `oppslag på kildeapplikasjon tar et objekt, ikke en bar verdi`() {

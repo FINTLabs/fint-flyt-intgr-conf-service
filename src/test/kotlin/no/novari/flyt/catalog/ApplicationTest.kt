@@ -228,7 +228,7 @@ class ApplicationTest : CatalogIntegrationTest() {
     }
 
     /**
-     * Klientene — mapping-service, configuration-service, acos-gateway og gateways bygget på
+     * Klientene — mapping-service, acos-gateway og gateways bygget på
      * flyt-gateway-starter eller flyt-web-instance-gateway — skal ikke bygges eller deployes på nytt.
      * Topic-navnene er derfor kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe
      * klienten sender.
@@ -236,13 +236,9 @@ class ApplicationTest : CatalogIntegrationTest() {
     @ParameterizedTest
     @CsvSource(
         "valueConversionByIdRequestConsumer,       test-no.flyt.request.value-converting.by.value-converting-id",
-        "metadataByMetadataIdRequestConsumer,      test-no.flyt.request.metadata.by.metadata-id",
-        "instanceMetadataByMetadataIdRequestConsumer, test-no.flyt.request.instance-metadata.by.metadata-id",
         "integrationMetadataEventConsumer,         test-no.flyt.event.integration-metadata-received",
-        "integrationByIdRequestConsumer,           test-no.flyt.request.integration.by.integration-id",
         "integrationBySourceApplicationAndIntegrationIdRequestConsumer, test-no.flyt.request.integration.by.source-application-id-and-source-application-integration-id",
         "activeConfigurationIdRequestConsumer,     test-no.flyt.request.active-configuration-id.by.integration-id",
-        "configurationByConfigurationIdRequestConsumer, test-no.flyt.request.configuration.by.configuration-id",
         "mappingByConfigurationIdRequestConsumer,  test-no.flyt.request.mapping.by.configuration-id",
     )
     fun `each consumer listens on the topic its clients produce to`(
@@ -252,6 +248,32 @@ class ApplicationTest : CatalogIntegrationTest() {
         val container = context.getBean(beanName, ConcurrentMessageListenerContainer::class.java)
 
         assertThat(container.containerProperties.topics).containsExactly(topic)
+    }
+
+    /**
+     * Integration, configuration og discovery slår opp i hverandre med lokale kall. De fire interne
+     * request/reply-kontraktene hadde ingen andre klienter, og topicene avvikles etter at alle tenants
+     * er over.
+     */
+    @ParameterizedTest
+    @CsvSource(
+        "test-no.flyt.request.integration.by.integration-id",
+        "test-no.flyt.request.configuration.by.configuration-id",
+        "test-no.flyt.request.metadata.by.metadata-id",
+        "test-no.flyt.request.instance-metadata.by.metadata-id",
+    )
+    fun `no consumer listens on the internal request topics the domains used to call each other over`(topic: String) {
+        val listenedTopics =
+            context
+                .getBeansOfType(ConcurrentMessageListenerContainer::class.java)
+                .values
+                .flatMap {
+                    it.containerProperties.topics
+                        .orEmpty()
+                        .toList()
+                }
+
+        assertThat(listenedTopics).doesNotContain(topic)
     }
 
     @Test
