@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManagerFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
+import org.hibernate.cfg.AvailableSettings
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -130,6 +131,33 @@ class ApplicationTest : CatalogIntegrationTest() {
         }
     }
 
+    @Test
+    fun `the integration entity belongs to exactly one persistence unit`() {
+        assertThat(entityNamesOf("integrationEntityManagerFactory")).contains(INTEGRATION_ENTITY)
+        listOf(
+            "ownSchemaEntityManagerFactory",
+            "configurationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(entityNamesOf(beanName))
+                .describedAs(beanName)
+                .doesNotContain(INTEGRATION_ENTITY)
+        }
+    }
+
+    @Test
+    fun `only the integration persistence unit skips bean validation on save`() {
+        assertThat(validationModeOf("integrationEntityManagerFactory")).hasToString("NONE")
+        listOf(
+            "configurationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(validationModeOf(beanName)).describedAs(beanName).hasToString("AUTO")
+        }
+    }
+
     @ParameterizedTest
     @CsvSource(
         "IntegrationMetadata",
@@ -154,8 +182,9 @@ class ApplicationTest : CatalogIntegrationTest() {
 
     /**
      * Klientene — mapping-service, configuration-service, acos-gateway og gateways bygget på
-     * flyt-gateway-starter — skal ikke bygges eller deployes på nytt. Topic-navnene er derfor
-     * kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe klienten sender.
+     * flyt-gateway-starter eller flyt-web-instance-gateway — skal ikke bygges eller deployes på nytt.
+     * Topic-navnene er derfor kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe
+     * klienten sender.
      */
     @ParameterizedTest
     @CsvSource(
@@ -163,6 +192,9 @@ class ApplicationTest : CatalogIntegrationTest() {
         "metadataByMetadataIdRequestConsumer,      test-no.flyt.request.metadata.by.metadata-id",
         "instanceMetadataByMetadataIdRequestConsumer, test-no.flyt.request.instance-metadata.by.metadata-id",
         "integrationMetadataEventConsumer,         test-no.flyt.event.integration-metadata-received",
+        "integrationByIdRequestConsumer,           test-no.flyt.request.integration.by.integration-id",
+        "integrationBySourceApplicationAndIntegrationIdRequestConsumer, test-no.flyt.request.integration.by.source-application-id-and-source-application-integration-id",
+        "activeConfigurationIdRequestConsumer,     test-no.flyt.request.active-configuration-id.by.integration-id",
     )
     fun `each consumer listens on the topic its clients produce to`(
         beanName: String,
@@ -201,6 +233,11 @@ class ApplicationTest : CatalogIntegrationTest() {
             else -> error("Ukjent skjema: $property")
         }
 
+    private fun validationModeOf(beanName: String): Any? =
+        context
+            .getBean(beanName, EntityManagerFactory::class.java)
+            .properties[AvailableSettings.JAKARTA_VALIDATION_MODE]
+
     private fun entityNamesOf(beanName: String): List<String> =
         context
             .getBean(beanName, EntityManagerFactory::class.java)
@@ -210,6 +247,7 @@ class ApplicationTest : CatalogIntegrationTest() {
     companion object {
         private const val REVISION_ENTITY = "ActorRevisionEntity"
         private const val VALUE_CONVERSION_ENTITY = "ValueConversion"
+        private const val INTEGRATION_ENTITY = "Integration"
 
         private val LEGACY_CHECKSUMS: Map<String, Map<String, Int>> =
             ApplicationTest::class.java
