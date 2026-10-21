@@ -11,9 +11,6 @@ metadata:
     app.kubernetes.io/part-of: fint-flyt
     fintlabs.no/team: flyt
     fintlabs.no/org-id: fintlabs.no
-# Katalogen har overtatt alle fire domenene, og rutene her dekker dem alle. Topic-konfigurasjon
-# opprettes og endres når konsument-bønnene bygges, altså ved oppstart, så en tenant må ha fått den
-# gamle tjenestens deployment slettet før denne starter.
 spec:
   port: 8080
   imagePullPolicy: Always
@@ -54,8 +51,6 @@ spec:
         secretKeyRef:
           name: fint-flyt-authorization-oauth2-client
           key: fint.sso.client-secret
-  # Taket følger den største tjenesten katalogen har overtatt, slik at den sammenslåtte podden
-  # aldri er mindre enn en av delene var alene. discovery-service kjørte på 2048Mi og -Xmx1840M.
   resources:
     limits:
       memory: "2048Mi"
