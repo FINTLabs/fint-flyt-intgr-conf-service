@@ -3,6 +3,7 @@ package no.novari.flyt.catalog.integration.web
 import no.novari.flyt.catalog.integration.api.IntegrationController
 import no.novari.flyt.catalog.integration.application.IntegrationService
 import no.novari.flyt.catalog.integration.application.IntegrationUpdateValidationService
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
@@ -17,7 +18,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 /**
  * Feilhåndtereren er avgrenset til [IntegrationController], så testen må gå gjennom den ekte
- * kontrolleren. En probe-kontroller ville ikke lenger nådd advicen.
+ * kontrolleren. En probe-kontroller ville ikke nådd advicen.
  */
 class GlobalExceptionHandlerMvcTest {
     private val mockMvc: MockMvc =
@@ -28,7 +29,7 @@ class GlobalExceptionHandlerMvcTest {
                     mock<IntegrationUpdateValidationService>(),
                     mock<UserAuthorizationService>(),
                 ),
-            ).setControllerAdvice(GlobalExceptionHandler(mock()))
+            ).setControllerAdvice(GlobalExceptionHandler(ValidationErrorsFormattingService()))
             .build()
 
     @Test
@@ -50,5 +51,29 @@ class GlobalExceptionHandlerMvcTest {
             .andExpect(status().isBadRequest)
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.status").value(400))
+    }
+
+    @Test
+    fun `invalid request body returns 422 with formatted validation errors`() {
+        mockMvc
+            .perform(
+                post("/api/intern/integrasjoner")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"sourceApplicationIntegrationId":"id","destination":"arkiv"}"""),
+            ).andExpect(status().isUnprocessableEntity)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.detail").value("Validation error: ['sourceApplicationId must not be null']"))
+    }
+
+    @Test
+    fun `unsupported content type returns 415 problem detail`() {
+        mockMvc
+            .perform(
+                post("/api/intern/integrasjoner")
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .content("tekst"),
+            ).andExpect(status().isUnsupportedMediaType)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(415))
     }
 }
