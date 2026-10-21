@@ -7,9 +7,12 @@ import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionValid
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
+import org.springframework.http.ProblemDetail
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.mock.http.MockHttpInputMessage
+import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.web.bind.MissingServletRequestParameterException
+import org.springframework.web.context.request.ServletWebRequest
 import org.springframework.web.server.ResponseStatusException
 
 class ValueConversionExceptionHandlerTest {
@@ -35,7 +38,7 @@ class ValueConversionExceptionHandlerTest {
                 MockHttpInputMessage(byteArrayOf()),
             )
 
-        val problemDetail = globalExceptionHandler.handleHttpMessageNotReadable(exception)
+        val problemDetail = handleThroughBaseClass(exception)
 
         assertEquals(HttpStatus.UNPROCESSABLE_ENTITY.value(), problemDetail.status)
         assertEquals("Unprocessable Entity", problemDetail.title)
@@ -99,7 +102,7 @@ class ValueConversionExceptionHandlerTest {
     fun `handling missing request parameter should return bad request problem detail`() {
         val exception = MissingServletRequestParameterException("page", "int")
 
-        val problemDetail = globalExceptionHandler.handleMissingServletRequestParameter(exception)
+        val problemDetail = handleThroughBaseClass(exception)
 
         assertEquals(HttpStatus.BAD_REQUEST.value(), problemDetail.status)
         assertEquals("Bad Request", problemDetail.title)
@@ -123,4 +126,10 @@ class ValueConversionExceptionHandlerTest {
             problemDetail.detail,
         )
     }
+
+    /** Spring-standardfeilene håndteres av overrides som er protected, og nås gjennom basisklassens inngang. */
+    private fun handleThroughBaseClass(exception: Exception): ProblemDetail =
+        checkNotNull(
+            globalExceptionHandler.handleException(exception, ServletWebRequest(MockHttpServletRequest()))?.body,
+        ) as ProblemDetail
 }
