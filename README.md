@@ -1,32 +1,64 @@
 # FINT Flyt Integration Configuration Service
 
-Spring Boot-tjeneste som skal samle katalogdomenet i FINT Flyt — integration, configuration,
-value converting og discovery — i én utrullbar enhet, og erstatte de fire tjenestene som eier
-disse domenene i dag.
+Spring Boot-tjeneste som samler katalogdomenet i FINT Flyt — integration, configuration,
+value converting og discovery — i én utrullbar enhet, og erstatter de fire tjenestene som eide
+disse domenene.
 
-Value-converting og discovery er flyttet inn og betjenes herfra. Integration og configuration
-ligger fortsatt i sine egne tjenester, og flyttes samlet i siste steg fordi de kaller hverandre.
+Alle fire domenene er flyttet inn og betjenes herfra. Integration og configuration ble flyttet
+samlet i siste steg fordi de kalte hverandre over Kafka.
 
 ## Pakkestruktur
 
 Ett Gradle-modul med én pakke per domene under `no.novari.flyt.catalog`:
 
-| Pakke                                    | Erstatter                          | Status         |
-|------------------------------------------|------------------------------------|----------------|
-| `no.novari.flyt.catalog.valueconverting` | fint-flyt-value-converting-service | Flyttet inn    |
-| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        | Flyttet inn    |
-| `no.novari.flyt.catalog.integration`     | fint-flyt-integration-service      | Kun persistens |
-| `no.novari.flyt.catalog.configuration`   | fint-flyt-configuration-service    | Kun persistens |
+| Pakke                                    | Erstatter                          | Status      |
+|------------------------------------------|------------------------------------|-------------|
+| `no.novari.flyt.catalog.valueconverting` | fint-flyt-value-converting-service | Flyttet inn |
+| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        | Flyttet inn |
+| `no.novari.flyt.catalog.integration`     | fint-flyt-integration-service      | Flyttet inn |
+| `no.novari.flyt.catalog.configuration`   | fint-flyt-configuration-service    | Flyttet inn |
 
 Pakkeskillet er et krav, ikke en preferanse: tjenesten beholder de fire eksisterende
 databaseskjemaene, og trenger derfor én persistence unit per skjema. `@EnableJpaRepositories`
 velger repositories per pakke, så hvert domene må ligge i sin egen pakke.
 
 Innenfor et domene speiler underpakkene den gamle tjenesten, og de fire er ikke like:
-value-converting har `api`, `application`, `domain` og `infrastructure`, mens discovery har
-controller, tjeneste og repository i domenets toppakke med `kafka`, `mapping`, `model` og
-`validation` under. Klassenavnene er også beholdt. Poenget er at hver flytting kan leses som en
-flytting — en felles målstruktur ville blandet strukturendring inn i et cutover-steg.
+
+- value-converting har `api`, `application`, `domain` og `infrastructure`.
+- integration har `api`, `application`, `kafka`, `persistence`, `validation` og `web`.
+- discovery og configuration har controller, tjeneste og repository i domenets toppakke, med
+  blant annet `kafka`, `mapping`, `model` og `validation` under.
+
+Klassenavnene er også beholdt. Poenget er at hver flytting kan leses som en flytting — en felles
+målstruktur ville blandet strukturendring inn i et cutover-steg.
+
+Ved siden av domenepakkene ligger tre tverrgående pakker: `database` med oppsettet de fem
+persistence unitene deler, `openapi` med felles OpenAPI-oppsett, og `validation` med de to
+hjelpeklassene for validering som alle domenene tidligere hadde hver sin kopi av.
+
+### Oppslag mellom domenene
+
+Integration, configuration og discovery slo tidligere opp i hverandre over interne
+request/reply-topics. Nå er det vanlige kall mellom tjenesteklassene:
+
+- Når en integrasjon aktiveres, henter `IntegrationValidatorFactory` konfigurasjonen fra
+  `ConfigurationService`.
+- Når en konfigurasjon valideres, henter `ConfigurationValidatorFactory` integrasjonen fra
+  `IntegrationService` og metadataen fra `IntegrationMetadataService`.
+
+Domenene bruker hverandres DTO-er direkte. Kopiene de gamle tjenestene hadde for å lese svarene,
+er fjernet.
+
+### Validering
+
+Configuration-service hadde sin egen `ValidatorFactory`, som erstattet Spring Boots
+`defaultValidator` for hele tjenesten. Her er den navngitt `configurationHibernateValidatorFactory`
+og brukes bare av configuration-domenet, både for konfigurasjonsvalideringen og for Hibernates
+validering ved lagring i configuration sin persistence unit. MVC-valideringen og de andre domenene
+bruker fortsatt Spring Boots validator.
+
+Integration sin persistence unit har Hibernates bean-validering ved lagring slått av, slik
+integration-service hadde det.
 
 ### Komponentskanning
 
@@ -109,10 +141,9 @@ tilbakestilles.
 
 ## Kafka
 
-Kafka og ingress vokser med ett domene per steg. Topic-konfigurasjon opprettes og endres når
-konsument-bønnene bygges, altså ved oppstart — ikke ved cutover. En tjeneste som deployes med Kafka
-aktivert for et domene den ikke har overtatt, ville derfor kunne endre topics som fortsatt eies av
-en gammel tjeneste. Rutene i kustomize-basen dekker value-converting og discovery, og ikke mer.
+Topic-konfigurasjon opprettes og endres når konsument-bønnene bygges, altså ved oppstart — ikke ved
+cutover. En tenant må derfor ha fått de gamle tjenestenes deployments slettet før katalogtjenesten
+starter, ellers kan begge endre de samme topicene.
 
 Consumer group er `${fint.application-id}`, altså et nytt navn uten commitede offsets. Sammen med
 `auto.offset.reset=earliest` — bibliotekets default, som **ikke skal overstyres** — betyr det at
@@ -124,15 +155,18 @@ pågående forespørsel fordi correlation-ID-ene er UUID-er.
 Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID. Kontraktene består
 derfor uendret, og ingen klient trenger ny bygging:
 
-| Topic | Klient |
-|---|---|
-| `request.value-converting.by.value-converting-id` | mapping-service |
-| `request.metadata.by.metadata-id` | configuration-service |
-| `request.instance-metadata.by.metadata-id` | configuration-service |
-| `event.integration-metadata-received` | acos-gateway og gateways bygget på flyt-gateway-starter |
+| Topic                                                                                | Klient                                                                  |
+|--------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `request.value-converting.by.value-converting-id`                                    | mapping-service                                                         |
+| `request.integration.by.source-application-id-and-source-application-integration-id` | gateways bygget på flyt-gateway-starter eller flyt-web-instance-gateway |
+| `request.active-configuration-id.by.integration-id`                                  | mapping-service                                                         |
+| `request.mapping.by.configuration-id`                                                | mapping-service                                                         |
+| `event.integration-metadata-received`                                                | acos-gateway og gateways bygget på flyt-gateway-starter                 |
 
-De to metadata-kontraktene opphører først når configuration-domenet flyttes inn, og topicene
-avvikles etter det.
+Fire interne kontrakter er erstattet av lokale kall og betjenes ikke herfra:
+`request.integration.by.integration-id`, `request.configuration.by.configuration-id`,
+`request.metadata.by.metadata-id` og `request.instance-metadata.by.metadata-id`. Topicene avvikles
+når alle tenants er over.
 
 `event.integration-metadata-received` er den eneste hendelsen katalogen konsumerer, og den eneste
 kontrakten der avspillingen har en skrivende effekt. Den er ufarlig fordi konsumet er idempotent i
@@ -208,6 +242,7 @@ autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med to unn
 Gammel og ny tjeneste kan ikke kjøre samtidig for samme tenant. De ville begge svart på den samme
 request-topicen, og begge hatt ingress-ruter på samme path. Cutover per tenant er derfor atomisk:
 deploy den nye tjenesten med `MD`-workflowen, og slett den gamle tjenestens deployment for tenanten.
+For integration og configuration gjelder det begge tjenestene samtidig.
 
 Tilbakerulling er å deploye den gamle tjenesten igjen. Ingen data er flyttet — begge tjenestene
 leser og skriver det samme skjemaet — så konfigurasjonsarbeid gjort etter cutover er umiddelbart
