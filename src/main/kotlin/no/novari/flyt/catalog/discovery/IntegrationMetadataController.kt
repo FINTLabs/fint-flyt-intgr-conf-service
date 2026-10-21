@@ -1,5 +1,6 @@
 package no.novari.flyt.catalog.discovery
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -14,7 +15,6 @@ import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
 import no.novari.flyt.catalog.discovery.validation.ValidationErrorsFormattingService
 import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
 import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
-import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -160,14 +160,18 @@ class IntegrationMetadataController(
             )
         if (constraintViolations.isNotEmpty()) {
             val formattedErrors = validationErrorsFormattingService.format(constraintViolations)
-            logger.warn(
-                "Rejected integration metadata request because validation failed. " +
-                    "sourceApplicationId={}, sourceApplicationIntegrationId={}, version={}, errors={}",
-                integrationMetadataDto.sourceApplicationId,
-                integrationMetadataDto.sourceApplicationIntegrationId,
-                integrationMetadataDto.version,
-                formattedErrors,
-            )
+            log.atWarn {
+                message =
+                    "Rejected integration metadata request because validation failed. " +
+                    "sourceApplicationId={}, sourceApplicationIntegrationId={}, version={}, errors={}"
+                arguments =
+                    arrayOf(
+                        integrationMetadataDto.sourceApplicationId,
+                        integrationMetadataDto.sourceApplicationIntegrationId,
+                        integrationMetadataDto.version,
+                        formattedErrors,
+                    )
+            }
             throw ResponseStatusException(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 formattedErrors,
@@ -188,6 +192,6 @@ class IntegrationMetadataController(
     }
 
     companion object {
-        private val logger = LoggerFactory.getLogger(IntegrationMetadataController::class.java)
+        private val log = KotlinLogging.logger {}
     }
 }

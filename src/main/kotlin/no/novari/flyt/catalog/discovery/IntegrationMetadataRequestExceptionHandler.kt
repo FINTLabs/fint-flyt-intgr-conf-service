@@ -1,6 +1,6 @@
 package no.novari.flyt.catalog.discovery
 
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpHeaders
@@ -20,18 +20,21 @@ class IntegrationMetadataRequestExceptionHandler : ResponseEntityExceptionHandle
         status: HttpStatusCode,
         request: WebRequest,
     ): ResponseEntity<Any>? {
-        requestLogger.warn(
-            "Failed to read integration metadata request. request={}, status={}, cause={}",
-            request.getDescription(false),
-            status.value(),
-            ex.mostSpecificCause.message ?: ex.message,
-            ex,
-        )
+        requestLog.atWarn {
+            message = "Failed to read integration metadata request. request={}, status={}, cause={}"
+            arguments =
+                arrayOf(
+                    request.getDescription(false),
+                    status.value(),
+                    ex.mostSpecificCause.message ?: ex.message,
+                )
+            cause = ex
+        }
 
         return super.handleHttpMessageNotReadable(ex, headers, status, request)
     }
 
     companion object {
-        private val requestLogger = LoggerFactory.getLogger(IntegrationMetadataRequestExceptionHandler::class.java)
+        private val requestLog = KotlinLogging.logger {}
     }
 }

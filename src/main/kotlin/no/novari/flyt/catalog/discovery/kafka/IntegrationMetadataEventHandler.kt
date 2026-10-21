@@ -1,9 +1,9 @@
 package no.novari.flyt.catalog.discovery.kafka
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.function.Consumer
 
@@ -34,17 +34,16 @@ class IntegrationMetadataEventHandler(
         if (!exists) {
             integrationMetadataRepository.save(integrationMetadata)
         } else {
-            logger.warn(
-                "Ignored metadata with sourceApplicationId={}, " +
-                    "sourceApplicationIntegrationId={} and version={} because it already exists",
-                sourceApplicationId,
-                sourceApplicationIntegrationId,
-                version,
-            )
+            log.atWarn {
+                message =
+                    "Ignored metadata with sourceApplicationId={}, " +
+                    "sourceApplicationIntegrationId={} and version={} because it already exists"
+                arguments = arrayOf(sourceApplicationId, sourceApplicationIntegrationId, version)
+            }
         }
     }
 
     companion object {
-        private val logger = LoggerFactory.getLogger(IntegrationMetadataEventHandler::class.java)
+        private val log = KotlinLogging.logger {}
     }
 }
