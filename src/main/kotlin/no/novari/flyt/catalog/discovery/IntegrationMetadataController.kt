@@ -1,5 +1,11 @@
 package no.novari.flyt.catalog.discovery
 
+import io.swagger.v3.oas.annotations.Hidden
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.ConstraintViolation
 import jakarta.validation.Validator
 import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
@@ -23,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException
 
 @RequestMapping("$INTERNAL_API/metadata")
 @RestController
+@Tag(name = "Integration metadata", description = "Metadata definitions for Flyt integrations and instances.")
 class IntegrationMetadataController(
     private val integrationMetadataService: IntegrationMetadataService,
     private val validator: Validator,
@@ -30,15 +37,19 @@ class IntegrationMetadataController(
     private val userAuthorizationService: UserAuthorizationService,
 ) {
     @GetMapping(params = ["kildeapplikasjonId", "kildeapplikasjonIntegrasjonId", "bareSisteVersjoner"])
+    @Hidden
     fun getIntegrationMetadataForSourceApplication(): ResponseEntity<Collection<IntegrationMetadata>> =
         ResponseEntity
             .badRequest()
             .build()
 
     @GetMapping(params = ["kildeapplikasjonId"])
+    @Operation(summary = "List metadata for a source application", operationId = "getSourceApplicationMetadata")
     fun getIntegrationMetadataForSourceApplication(
         authentication: Authentication,
+        @Parameter(description = "Source application identifier")
         @RequestParam(name = "kildeapplikasjonId") sourceApplicationId: Long,
+        @Parameter(description = "Return only the latest version for each integration")
         @RequestParam(name = "bareSisteVersjoner", required = false) onlyLatestVersions: Boolean?,
     ): ResponseEntity<Collection<IntegrationMetadataDto>> {
         userAuthorizationService.checkIfUserHasAccessToSourceApplication(authentication, sourceApplicationId)
@@ -53,9 +64,15 @@ class IntegrationMetadataController(
     }
 
     @GetMapping(params = ["kildeapplikasjonIds"])
+    @Operation(
+        summary = "List metadata for multiple source applications",
+        operationId = "getSourceApplicationsMetadata",
+    )
     fun getIntegrationMetadataForSourceApplications(
         authentication: Authentication,
+        @Parameter(description = "Source application identifiers")
         @RequestParam(name = "kildeapplikasjonIds") sourceApplicationIds: Collection<Long>,
+        @Parameter(description = "Return only the latest version for each integration")
         @RequestParam(name = "bareSisteVersjoner", required = false) onlyLatestVersions: Boolean?,
     ): ResponseEntity<Map<Long, Collection<IntegrationMetadataDto>>> {
         val requestedSourceApplicationIds = sourceApplicationIds.toSet()
@@ -78,9 +95,12 @@ class IntegrationMetadataController(
     }
 
     @GetMapping(params = ["kildeapplikasjonId", "kildeapplikasjonIntegrasjonId"])
+    @Operation(summary = "List metadata versions for an integration", operationId = "getIntegrationMetadata")
     fun getIntegrationMetadataForIntegration(
         authentication: Authentication,
+        @Parameter(description = "Source application identifier")
         @RequestParam(name = "kildeapplikasjonId") sourceApplicationId: Long,
+        @Parameter(description = "Source application integration identifier")
         @RequestParam(name = "kildeapplikasjonIntegrasjonId") sourceApplicationIntegrationId: String,
     ): ResponseEntity<Collection<IntegrationMetadataDto>> {
         userAuthorizationService.checkIfUserHasAccessToSourceApplication(authentication, sourceApplicationId)
@@ -95,8 +115,17 @@ class IntegrationMetadataController(
     }
 
     @GetMapping("{metadataId}/instans-metadata")
+    @Operation(summary = "Get instance metadata by integration metadata identifier")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "Instance metadata found"),
+            ApiResponse(responseCode = "403", description = "Source application access denied"),
+            ApiResponse(responseCode = "404", description = "Integration metadata not found"),
+        ],
+    )
     fun getInstanceElementMetadataForIntegrationMetadataWithId(
         authentication: Authentication,
+        @Parameter(description = "Integration metadata identifier")
         @PathVariable metadataId: Long,
     ): ResponseEntity<InstanceMetadataContentDto?> {
         val integrationMetadataDto =
@@ -112,6 +141,15 @@ class IntegrationMetadataController(
     }
 
     @PostMapping
+    @Operation(summary = "Publish an integration metadata version")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "Metadata version published"),
+            ApiResponse(responseCode = "403", description = "Source application access denied"),
+            ApiResponse(responseCode = "409", description = "Metadata version already exists"),
+            ApiResponse(responseCode = "422", description = "Invalid metadata"),
+        ],
+    )
     fun post(
         authentication: Authentication,
         @RequestBody integrationMetadataDto: IntegrationMetadataDto,
