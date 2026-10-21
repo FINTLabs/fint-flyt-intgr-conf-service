@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import jakarta.persistence.EntityManagerFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import no.novari.flyt.catalog.database.catalogDataSource
+import no.novari.flyt.catalog.database.catalogEntityManagerFactory
 import no.novari.flyt.catalog.database.catalogFlyway
 import org.flywaydb.core.Flyway
 import org.springframework.beans.factory.annotation.Qualifier
@@ -44,12 +45,18 @@ class ConfigurationPersistenceConfig {
     fun configurationEntityManagerFactory(
         builder: EntityManagerFactoryBuilder,
         @Qualifier("configurationDataSource") dataSource: DataSource,
+        schemas: CatalogSchemas,
     ): LocalContainerEntityManagerFactoryBean =
-        builder
-            .dataSource(dataSource)
-            .packages("no.novari.flyt.catalog.configuration", "no.novari.flyt.audit.revision")
-            .persistenceUnit("configuration")
-            .build()
+        builder.catalogEntityManagerFactory(
+            dataSource = dataSource,
+            schema = schemas.configuration,
+            persistenceUnit = "configuration",
+            packages =
+                listOf(
+                    "no.novari.flyt.catalog.configuration",
+                    "no.novari.flyt.audit.revision",
+                ),
+        )
 
     @Bean
     fun configurationTransactionManager(

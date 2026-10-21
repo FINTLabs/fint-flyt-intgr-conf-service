@@ -38,14 +38,16 @@ class OwnSchemaPersistenceConfig {
     fun ownSchemaEntityManagerFactory(
         builder: EntityManagerFactoryBuilder,
         @Qualifier("ownSchemaDataSource") dataSource: DataSource,
+        schemas: CatalogSchemas,
     ): LocalContainerEntityManagerFactoryBean =
-        builder
-            .dataSource(dataSource)
-            // Eksplisitt tom: uten packagesToScan skanner Hibernate classpathen og ville dratt inn
-            // domenenes entiteter etter hvert som de flyttes inn.
-            .packages(*emptyArray<String>())
-            .persistenceUnit("own")
-            .build()
+        // Ingen pakker: uten packagesToScan skanner Hibernate classpathen og ville dratt inn
+        // domenenes entiteter etter hvert som de flyttes inn.
+        builder.catalogEntityManagerFactory(
+            dataSource = dataSource,
+            schema = schemas.own,
+            persistenceUnit = "own",
+            packages = emptyList(),
+        )
 
     @Bean
     @Primary

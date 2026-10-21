@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import jakarta.persistence.EntityManagerFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import no.novari.flyt.catalog.database.catalogDataSource
+import no.novari.flyt.catalog.database.catalogEntityManagerFactory
 import no.novari.flyt.catalog.database.catalogFlyway
 import org.flywaydb.core.Flyway
 import org.springframework.beans.factory.annotation.Qualifier
@@ -44,12 +45,14 @@ class IntegrationPersistenceConfig {
     fun integrationEntityManagerFactory(
         builder: EntityManagerFactoryBuilder,
         @Qualifier("integrationDataSource") dataSource: DataSource,
+        schemas: CatalogSchemas,
     ): LocalContainerEntityManagerFactoryBean =
-        builder
-            .dataSource(dataSource)
-            .packages("no.novari.flyt.catalog.integration")
-            .persistenceUnit("integration")
-            .build()
+        builder.catalogEntityManagerFactory(
+            dataSource = dataSource,
+            schema = schemas.integration,
+            persistenceUnit = "integration",
+            packages = listOf("no.novari.flyt.catalog.integration"),
+        )
 
     @Bean
     fun integrationTransactionManager(

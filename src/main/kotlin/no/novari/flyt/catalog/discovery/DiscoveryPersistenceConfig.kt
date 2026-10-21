@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import jakarta.persistence.EntityManagerFactory
 import no.novari.flyt.catalog.database.CatalogSchemas
 import no.novari.flyt.catalog.database.catalogDataSource
+import no.novari.flyt.catalog.database.catalogEntityManagerFactory
 import no.novari.flyt.catalog.database.catalogFlyway
 import org.flywaydb.core.Flyway
 import org.springframework.beans.factory.annotation.Qualifier
@@ -44,12 +45,14 @@ class DiscoveryPersistenceConfig {
     fun discoveryEntityManagerFactory(
         builder: EntityManagerFactoryBuilder,
         @Qualifier("discoveryDataSource") dataSource: DataSource,
+        schemas: CatalogSchemas,
     ): LocalContainerEntityManagerFactoryBean =
-        builder
-            .dataSource(dataSource)
-            .packages("no.novari.flyt.catalog.discovery")
-            .persistenceUnit("discovery")
-            .build()
+        builder.catalogEntityManagerFactory(
+            dataSource = dataSource,
+            schema = schemas.discovery,
+            persistenceUnit = "discovery",
+            packages = listOf("no.novari.flyt.catalog.discovery"),
+        )
 
     @Bean
     fun discoveryTransactionManager(
