@@ -9,6 +9,7 @@ import org.mockito.kotlin.mock
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -45,5 +46,17 @@ class ValueConversionExceptionHandlerMvcTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Invalid value for request parameter 'id'"))
+    }
+
+    @Test
+    fun `unsupported content type returns 415 problem detail`() {
+        mockMvc
+            .perform(
+                post("/api/intern/value-convertings")
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .content("tekst"),
+            ).andExpect(status().isUnsupportedMediaType)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(415))
     }
 }

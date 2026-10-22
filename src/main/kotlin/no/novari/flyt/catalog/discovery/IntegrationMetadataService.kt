@@ -1,7 +1,6 @@
 package no.novari.flyt.catalog.discovery
 
 import no.novari.flyt.catalog.discovery.mapping.IntegrationMetadataMappingService
-import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import org.springframework.stereotype.Service
 
@@ -58,13 +57,6 @@ class IntegrationMetadataService(
                 sourceApplicationIntegrationId = sourceApplicationIntegrationId,
             ),
         )
-
-    fun getInstanceMetadataById(id: Long): InstanceMetadataContentDto? =
-        integrationMetadataRepository
-            .findById(id)
-            .map(integrationMetadataMappingService::toDto)
-            .map(IntegrationMetadataDto::instanceMetadata)
-            .orElse(null)
 
     fun getById(id: Long): IntegrationMetadataDto? =
         integrationMetadataRepository

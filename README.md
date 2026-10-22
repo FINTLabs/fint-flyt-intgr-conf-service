@@ -1,47 +1,68 @@
 # FINT Flyt Integration Configuration Service
 
-Spring Boot-tjeneste som skal samle katalogdomenet i FINT Flyt — integration, configuration,
-value converting og discovery — i én utrullbar enhet, og erstatte de fire tjenestene som eier
-disse domenene i dag.
+Spring Boot-tjeneste som samler katalogdomenet i FINT Flyt — integration, configuration,
+value converting og discovery — i én utrullbar enhet.
 
-Value-converting og discovery er flyttet inn og betjenes herfra. Integration og configuration
-ligger fortsatt i sine egne tjenester, og flyttes samlet i siste steg fordi de kaller hverandre.
+Arkitekturen er beskrevet med C4-diagrammer i [docs/architecture](docs/architecture/README.md).
 
 ## Pakkestruktur
 
 Ett Gradle-modul med én pakke per domene under `no.novari.flyt.catalog`:
 
-| Pakke                                    | Erstatter                          | Status         |
-|------------------------------------------|------------------------------------|----------------|
-| `no.novari.flyt.catalog.valueconverting` | fint-flyt-value-converting-service | Flyttet inn    |
-| `no.novari.flyt.catalog.discovery`       | fint-flyt-discovery-service        | Flyttet inn    |
-| `no.novari.flyt.catalog.integration`     | fint-flyt-integration-service      | Kun persistens |
-| `no.novari.flyt.catalog.configuration`   | fint-flyt-configuration-service    | Kun persistens |
+- `no.novari.flyt.catalog.valueconverting`
+- `no.novari.flyt.catalog.discovery`
+- `no.novari.flyt.catalog.integration`
+- `no.novari.flyt.catalog.configuration`
 
-Pakkeskillet er et krav, ikke en preferanse: tjenesten beholder de fire eksisterende
-databaseskjemaene, og trenger derfor én persistence unit per skjema. `@EnableJpaRepositories`
-velger repositories per pakke, så hvert domene må ligge i sin egen pakke.
+Pakkeskillet er et krav, ikke en preferanse: hvert domene har sitt eget databaseskjema, og
+tjenesten trenger derfor én persistence unit per skjema. `@EnableJpaRepositories` velger
+repositories per pakke, så hvert domene må ligge i sin egen pakke.
 
-Innenfor et domene speiler underpakkene den gamle tjenesten, og de fire er ikke like:
-value-converting har `api`, `application`, `domain` og `infrastructure`, mens discovery har
-controller, tjeneste og repository i domenets toppakke med `kafka`, `mapping`, `model` og
-`validation` under. Klassenavnene er også beholdt. Poenget er at hver flytting kan leses som en
-flytting — en felles målstruktur ville blandet strukturendring inn i et cutover-steg.
+Underpakkene er ikke like på tvers av domenene:
+
+- value-converting har `api`, `application`, `domain` og `infrastructure`.
+- integration har `api`, `application`, `kafka`, `persistence`, `validation` og `web`.
+- discovery og configuration har controller, tjeneste og repository i domenets toppakke, med
+  blant annet `kafka`, `mapping`, `model` og `validation` under.
+
+Ved siden av domenepakkene ligger tre tverrgående pakker: `database` med oppsettet de fem
+persistence unitene deler, `openapi` med felles OpenAPI-oppsett, og `validation` med
+hjelpeklassene for validering som alle domenene bruker.
+
+### Oppslag mellom domenene
+
+Integration, configuration og discovery slår opp i hverandre med vanlige kall mellom
+tjenesteklassene:
+
+- Når en integrasjon aktiveres, henter `IntegrationValidatorFactory` konfigurasjonen fra
+  `ConfigurationService`.
+- Når en konfigurasjon valideres, henter `ConfigurationValidatorFactory` integrasjonen fra
+  `IntegrationService` og metadataen fra `IntegrationMetadataService`.
+
+Domenene bruker hverandres DTO-er direkte.
+
+### Validering
+
+Configuration-domenet har sin egen `ValidatorFactory`, `configurationHibernateValidatorFactory`.
+Den brukes bare av configuration, både for konfigurasjonsvalideringen og for Hibernates validering
+ved lagring i configuration sin persistence unit. MVC-valideringen og de andre domenene bruker
+Spring Boots `defaultValidator`.
+
+Integration sin persistence unit har Hibernates bean-validering ved lagring slått av.
 
 ### Komponentskanning
 
 `@SpringBootApplication` navngir pakkene den skanner. `flyt-web-resource-server` og
 `no.novari:kafka` registrerer bare deler av bønnene sine gjennom auto-konfigurasjon — resten er
-`@Service`-klasser som forutsetter at konsumenten skanner bibliotekets egen pakke. De fire gamle
-tjenestene fikk det gratis fordi applikasjonsklassen deres lå i `no.novari`. Her står pakkene
+`@Service`-klasser som forutsetter at konsumenten skanner bibliotekets egen pakke. Pakkene står
 oppført eksplisitt, framfor å skanne hele `no.novari`.
 
 ## Persistering
 
-Tjenesten migrerer ikke data. Hvert domene beholder skjemaet den gamle tjenesten eier, i samme
-`fint-flyt`-database per tenant. Fire persistence units er påkrevd fordi `configuration_aud` og
-`value_converting_aud` hver har en ekte fremmednøkkel til en `revinfo`-tabell i sitt eget skjema,
-og Envers tillater kun én revisjonsentitet per persistence unit.
+Hvert domene har sitt eget skjema i `fint-flyt`-databasen per tenant. Fire persistence units er
+påkrevd fordi `configuration_aud` og `value_converting_aud` hver har en ekte fremmednøkkel til en
+`revinfo`-tabell i sitt eget skjema, og Envers tillater kun én revisjonsentitet per persistence
+unit.
 
 Hvert domene har derfor sin egen `DataSource`, `EntityManagerFactory`, `PlatformTransactionManager`
 og `Flyway`, satt opp i `<Domene>PersistenceConfig` i domenepakken. De fire er likestilte — ingen av
@@ -86,58 +107,46 @@ testene bruker.
 
 ### Flyway
 
-Migreringene fra de fire gamle tjenestene ligger under hver sin katalog i
-`src/main/resources/db/migration/`, med én `Flyway`-bønne per skjema. Hvert skjema har allerede sin
-egen `flyway_schema_history`, så versjonsnumrene kolliderer ikke selv om alle fire har en `V1__init.sql`.
+Migreringene ligger under én katalog per domene i `src/main/resources/db/migration/`, med én
+`Flyway`-bønne per skjema. Hvert skjema har sin egen `flyway_schema_history`, så versjonsnumrene
+kolliderer ikke selv om alle fire har en `V1__init.sql`. Ved oppstart validerer Flyway mot
+historikken, og applikasjonen verifiserer dermed at den snakker med det skjemaet den tror.
 
-I drift er alle migreringene allerede kjørt, så Flyway gjør ikke annet enn å validere mot
-historikken de gamle tjenestene skrev. Det er nettopp verdien: applikasjonen verifiserer ved
-oppstart at den snakker med det skjemaet den tror.
-
-**`.sql`-filene er kopiert byte-for-byte og må aldri endres.** Flyway sammenligner `script` og
-`checksum` mot radene som allerede står i `flyway_schema_history`; avviker de, stopper oppstarten.
+**De eksisterende `.sql`-filene må aldri endres.** Flyway sammenligner `script` og `checksum` mot
+radene som allerede står i `flyway_schema_history`; avviker de, stopper oppstarten.
 
 Checksummen beregnes linje for linje over filinnholdet. Linjeskift, final newline og blanke linjer
 påvirker den derfor ikke, men **trailing whitespace gjør det** — og det er nettopp den slags endring
 en editor gjør uoppfordret. `.editorconfig` slår av `trim_trailing_whitespace` for katalogen, og
-`insert_final_newline` i tillegg, slik at filene forblir byte-identiske med originalene.
+`insert_final_newline` i tillegg, slik at filene forblir byte-identiske.
 
-`src/test/resources/legacy-flyway-checksums.txt` holder checksummene hentet fra de gamle repoene, og
-en test sammenligner filene mot dem. Endres en migrering, feiler CI med filnavn og begge verdiene.
-Den filen skal ikke oppdateres for å få testen grønn — da er invarianten brutt, og migreringen skal
-tilbakestilles.
+`src/test/resources/legacy-flyway-checksums.txt` holder checksummene som står i
+`flyway_schema_history` i drift, og en test sammenligner filene mot dem. Endres en migrering,
+feiler CI med filnavn og begge verdiene. Den filen skal ikke oppdateres for å få testen grønn — da
+er invarianten brutt, og migreringen skal tilbakestilles.
 
 ## Kafka
 
-Kafka og ingress vokser med ett domene per steg. Topic-konfigurasjon opprettes og endres når
-konsument-bønnene bygges, altså ved oppstart — ikke ved cutover. En tjeneste som deployes med Kafka
-aktivert for et domene den ikke har overtatt, ville derfor kunne endre topics som fortsatt eies av
-en gammel tjeneste. Rutene i kustomize-basen dekker value-converting og discovery, og ikke mer.
+Topic-konfigurasjon opprettes og endres når konsument-bønnene bygges, altså ved oppstart.
 
-Consumer group er `${fint.application-id}`, altså et nytt navn uten commitede offsets. Sammen med
-`auto.offset.reset=earliest` — bibliotekets default, som **ikke skal overstyres** — betyr det at
-tjenesten leser fra begynnelsen av topicen ved første oppstart per tenant, og dermed plukker opp
-alt som ble produsert i cutover-gapet. Prisen er at meldinger behandles på nytt, og den er allerede
-betalt: request/reply-konsumentene er rene lesninger, og et avspilt svar kan ikke matches mot en
-pågående forespørsel fordi correlation-ID-ene er UUID-er.
+Consumer group er `${fint.application-id}`, med `auto.offset.reset=earliest` som er bibliotekets
+default. Meldinger kan derfor bli behandlet på nytt. Request/reply-konsumentene er rene lesninger,
+og et avspilt svar kan ikke matches mot en pågående forespørsel fordi correlation-ID-ene er UUID-er.
 
-Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID. Kontraktene består
-derfor uendret, og ingen klient trenger ny bygging:
+Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID:
 
-| Topic | Klient |
-|---|---|
-| `request.value-converting.by.value-converting-id` | mapping-service |
-| `request.metadata.by.metadata-id` | configuration-service |
-| `request.instance-metadata.by.metadata-id` | configuration-service |
-| `event.integration-metadata-received` | acos-gateway og gateways bygget på flyt-gateway-starter |
-
-De to metadata-kontraktene opphører først når configuration-domenet flyttes inn, og topicene
-avvikles etter det.
+| Topic                                                                                | Klient                                                                  |
+|--------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `request.value-converting.by.value-converting-id`                                    | mapping-service                                                         |
+| `request.integration.by.source-application-id-and-source-application-integration-id` | gateways bygget på flyt-gateway-starter eller flyt-web-instance-gateway |
+| `request.active-configuration-id.by.integration-id`                                  | mapping-service                                                         |
+| `request.mapping.by.configuration-id`                                                | mapping-service                                                         |
+| `event.integration-metadata-received`                                                | acos-gateway og gateways bygget på flyt-gateway-starter                 |
 
 `event.integration-metadata-received` er den eneste hendelsen katalogen konsumerer, og den eneste
-kontrakten der avspillingen har en skrivende effekt. Den er ufarlig fordi konsumet er idempotent i
-to lag: `IntegrationMetadataEventHandler` sin `exists`-sjekk og den unike constrainten på
-`(source_application_id, source_application_integration_id, version)` i `V1__init.sql`.
+kontrakten der avspillingen har en skrivende effekt. Avspillingen er ufarlig fordi konsumet er
+idempotent i to lag: `IntegrationMetadataEventHandler` sin `exists`-sjekk og den unike constrainten
+på `(source_application_id, source_application_integration_id, version)` i `V1__init.sql`.
 
 ## OpenAPI-dokumentasjon
 
@@ -202,14 +211,3 @@ Overlayene setter ingress-rute, `server.servlet.context-path`, probe- og metrics
 autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med to unntak som står i
 `render-overlay.sh`: de tre tidligere Viken-fylkene slipper også inn brukere fra `viken.no` og
 `frid-iks.no`, og oauth2-secreten i `ra-no` bruker andre nøkkelnavn enn de øvrige namespacene.
-
-### Cutover
-
-Gammel og ny tjeneste kan ikke kjøre samtidig for samme tenant. De ville begge svart på den samme
-request-topicen, og begge hatt ingress-ruter på samme path. Cutover per tenant er derfor atomisk:
-deploy den nye tjenesten med `MD`-workflowen, og slett den gamle tjenestens deployment for tenanten.
-
-Tilbakerulling er å deploye den gamle tjenesten igjen. Ingen data er flyttet — begge tjenestene
-leser og skriver det samme skjemaet — så konfigurasjonsarbeid gjort etter cutover er umiddelbart
-synlig igjen. Det forutsetter at kustomize-overlays og pipelines for de gamle tjenestene ikke ryddes
-før reverserbarhetsvinduet er ute.

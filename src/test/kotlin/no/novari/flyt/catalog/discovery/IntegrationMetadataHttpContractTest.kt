@@ -12,7 +12,7 @@ import no.novari.flyt.catalog.discovery.model.dtos.InstanceObjectCollectionMetad
 import no.novari.flyt.catalog.discovery.model.dtos.InstanceValueMetadataDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
-import no.novari.flyt.catalog.discovery.validation.ValidationErrorsFormattingService
+import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach

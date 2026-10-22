@@ -11,10 +11,6 @@ metadata:
     app.kubernetes.io/part-of: fint-flyt
     fintlabs.no/team: flyt
     fintlabs.no/org-id: fintlabs.no
-# Kafka og ingress vokser med ett domene per steg. Topic-konfigurasjon opprettes og endres når
-# konsument-bønnene bygges, altså ved oppstart — en tjeneste som deployes med Kafka aktivert for
-# et domene den ikke har overtatt, ville kunne endre topics som fortsatt eies av en gammel
-# tjeneste. Rutene her dekker derfor value-converting og discovery, og ikke mer.
 spec:
   port: 8080
   imagePullPolicy: Always
@@ -31,9 +27,13 @@ spec:
     hostname: flyt.vigoiks.no
     basePath: ""
   ingress:
-    # Én rute per domene katalogen har overtatt, i den rekkefølgen overlay-malen patcher dem:
-    # 0 = /api/intern/value-convertings, 1 = /api/intern/metadata.
+    # Én rute per domene, i den rekkefølgen overlay-malen patcher dem: 0 = /api/intern/value-convertings,
+    # 1 = /api/intern/metadata, 2 = /api/intern/integrasjoner, 3 = /api/intern/konfigurasjoner.
     routes:
+      - host: flyt.vigoiks.no
+        path: path
+      - host: flyt.vigoiks.no
+        path: path
       - host: flyt.vigoiks.no
         path: path
       - host: flyt.vigoiks.no
@@ -51,8 +51,6 @@ spec:
         secretKeyRef:
           name: fint-flyt-authorization-oauth2-client
           key: fint.sso.client-secret
-  # Taket følger den største tjenesten katalogen har overtatt, slik at den sammenslåtte podden
-  # aldri er mindre enn en av delene var alene. discovery-service kjørte på 2048Mi og -Xmx1840M.
   resources:
     limits:
       memory: "2048Mi"

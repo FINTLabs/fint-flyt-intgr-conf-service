@@ -6,20 +6,26 @@ import no.novari.flyt.catalog.valueconverting.api.exception.InvalidRequestParame
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionDataIntegrityException
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionNotFoundException
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionValidationException
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
+import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.validation.BindException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.WebRequest
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.server.ResponseStatusException
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 
 /**
- * Scopet til value-converting-kontrollerne framfor å være global, fordi de tre øvrige
- * katalogdomenene har hver sin advice-klasse og skal flyttes inn i den samme applikasjonen.
+ * Avgrenset til value-converting-kontrollerne, fordi hvert katalogdomene har sin egen feilhåndterer
+ * med sitt eget feilformat.
  */
 @RestControllerAdvice(
     assignableTypes = [
@@ -27,12 +33,12 @@ import org.springframework.web.server.ResponseStatusException
         ValueConversionHistoryController::class,
     ],
 )
-class ValueConversionExceptionHandler {
-    private val logger = KotlinLogging.logger {}
+class ValueConversionExceptionHandler : ResponseEntityExceptionHandler() {
+    private val log = KotlinLogging.logger {}
 
     @ExceptionHandler(ValueConversionNotFoundException::class)
     fun handleValueConversionNotFound(exception: ValueConversionNotFoundException): ProblemDetail {
-        logger.warn(exception) { "Value conversion not found" }
+        log.warn(exception) { "Value conversion not found" }
         return createProblemDetail(
             status = HttpStatus.NOT_FOUND,
             title = "Not Found",
@@ -40,29 +46,43 @@ class ValueConversionExceptionHandler {
         )
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleHttpMessageNotReadable(exception: HttpMessageNotReadableException): ProblemDetail {
-        logger.warn(exception) { "Malformed request body" }
-        return createProblemDetail(
+    override fun handleHttpMessageNotReadable(
+        ex: HttpMessageNotReadableException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        log.warn(ex) { "Malformed request body" }
+        return problem(
+            exception = ex,
             status = HttpStatus.UNPROCESSABLE_ENTITY,
             title = "Unprocessable Entity",
-            detail = createValidationDetail(exception),
+            detail = createValidationDetail(ex),
+            headers = headers,
+            request = request,
         )
     }
 
-    @ExceptionHandler(HandlerMethodValidationException::class)
-    fun handleHandlerMethodValidation(exception: HandlerMethodValidationException): ProblemDetail {
-        logger.warn(exception) { "Request parameter validation failed" }
-        return createProblemDetail(
+    override fun handleHandlerMethodValidationException(
+        ex: HandlerMethodValidationException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        log.warn(ex) { "Request parameter validation failed" }
+        return problem(
+            exception = ex,
             status = HttpStatus.BAD_REQUEST,
             title = "Bad Request",
-            detail = createMethodValidationDetail(exception),
+            detail = createMethodValidationDetail(ex),
+            headers = headers,
+            request = request,
         )
     }
 
     @ExceptionHandler(InvalidRequestParameterException::class)
     fun handleInvalidRequestParameter(exception: InvalidRequestParameterException): ProblemDetail {
-        logger.warn(exception) { "Invalid request parameter" }
+        log.warn(exception) { "Invalid request parameter" }
         return createProblemDetail(
             status = HttpStatus.BAD_REQUEST,
             title = "Bad Request",
@@ -70,19 +90,47 @@ class ValueConversionExceptionHandler {
         )
     }
 
-    @ExceptionHandler(MissingServletRequestParameterException::class)
-    fun handleMissingServletRequestParameter(exception: MissingServletRequestParameterException): ProblemDetail {
-        logger.warn(exception) { "Missing request parameter" }
-        return createProblemDetail(
+    override fun handleMissingServletRequestParameter(
+        ex: MissingServletRequestParameterException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        log.warn(ex) { "Missing request parameter" }
+        return problem(
+            exception = ex,
             status = HttpStatus.BAD_REQUEST,
             title = "Bad Request",
-            detail = "Validation error: '${exception.parameterName}' is required",
+            detail = "Validation error: '${ex.parameterName}' is required",
+            headers = headers,
+            request = request,
+        )
+    }
+
+    /**
+     * `MethodArgumentNotValidException` er en `BindException`, men basisklassen har en egen handler
+     * for den. Den overstyres slik at valideringsfeil får samme svar som [handleBindException] gir.
+     */
+    override fun handleMethodArgumentNotValid(
+        ex: MethodArgumentNotValidException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        log.warn(ex) { "Request parameter binding failed" }
+        return problem(
+            exception = ex,
+            status = HttpStatus.BAD_REQUEST,
+            title = "Bad Request",
+            detail = createBindingValidationDetail(ex),
+            headers = headers,
+            request = request,
         )
     }
 
     @ExceptionHandler(BindException::class)
     fun handleBindException(exception: BindException): ProblemDetail {
-        logger.warn(exception) { "Request parameter binding failed" }
+        log.warn(exception) { "Request parameter binding failed" }
         return createProblemDetail(
             status = HttpStatus.BAD_REQUEST,
             title = "Bad Request",
@@ -93,7 +141,7 @@ class ValueConversionExceptionHandler {
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(exception: ResponseStatusException): ProblemDetail {
         val status = HttpStatus.valueOf(exception.statusCode.value())
-        logger.warn(exception) { "Request rejected with response status" }
+        log.warn(exception) { "Request rejected with response status" }
         return createProblemDetail(
             status = status,
             title = status.reasonPhrase,
@@ -103,7 +151,7 @@ class ValueConversionExceptionHandler {
 
     @ExceptionHandler(ValueConversionValidationException::class)
     fun handleValueConversionValidation(exception: ValueConversionValidationException): ProblemDetail {
-        logger.warn(exception) { "Value conversion validation failed" }
+        log.warn(exception) { "Value conversion validation failed" }
         return createProblemDetail(
             status = HttpStatus.UNPROCESSABLE_ENTITY,
             title = "Unprocessable Entity",
@@ -113,7 +161,7 @@ class ValueConversionExceptionHandler {
 
     @ExceptionHandler(ValueConversionDataIntegrityException::class)
     fun handleValueConversionDataIntegrity(exception: ValueConversionDataIntegrityException): ProblemDetail {
-        logger.error(exception) { "Value conversion data integrity violation" }
+        log.error(exception) { "Value conversion data integrity violation" }
         return createProblemDetail(
             status = HttpStatus.INTERNAL_SERVER_ERROR,
             title = "Internal Server Error",
@@ -123,7 +171,7 @@ class ValueConversionExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
     fun handleMethodArgumentTypeMismatch(exception: MethodArgumentTypeMismatchException): ProblemDetail {
-        logger.warn(exception) { "Request parameter type mismatch" }
+        log.warn(exception) { "Request parameter type mismatch" }
         return createProblemDetail(
             status = HttpStatus.BAD_REQUEST,
             title = "Bad Request",
@@ -133,13 +181,29 @@ class ValueConversionExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnhandledException(exception: Exception): ProblemDetail {
-        logger.error(exception) { "Unhandled exception" }
+        log.error(exception) { "Unhandled exception" }
         return createProblemDetail(
             status = HttpStatus.INTERNAL_SERVER_ERROR,
             title = "Internal Server Error",
             detail = "Internal server error",
         )
     }
+
+    private fun problem(
+        exception: Exception,
+        status: HttpStatus,
+        title: String,
+        detail: String,
+        headers: HttpHeaders,
+        request: WebRequest,
+    ): ResponseEntity<Any>? =
+        handleExceptionInternal(
+            exception,
+            createProblemDetail(status, title, detail),
+            headers,
+            status,
+            request,
+        )
 
     private fun createProblemDetail(
         status: HttpStatus,

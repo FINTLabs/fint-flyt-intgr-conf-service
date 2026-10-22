@@ -1,9 +1,11 @@
 package no.novari.flyt.catalog
 
 import jakarta.persistence.EntityManagerFactory
+import jakarta.validation.Validator
 import no.novari.flyt.catalog.database.CatalogSchemas
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
+import org.hibernate.cfg.AvailableSettings
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -130,6 +132,79 @@ class ApplicationTest : CatalogIntegrationTest() {
         }
     }
 
+    @Test
+    fun `the integration entity belongs to exactly one persistence unit`() {
+        assertThat(entityNamesOf("integrationEntityManagerFactory")).contains(INTEGRATION_ENTITY)
+        listOf(
+            "ownSchemaEntityManagerFactory",
+            "configurationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(entityNamesOf(beanName))
+                .describedAs(beanName)
+                .doesNotContain(INTEGRATION_ENTITY)
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "Configuration",
+        "ObjectMapping",
+        "ValueMapping",
+        "InstanceCollectionReference",
+        "ObjectCollectionMapping",
+        "ObjectsFromCollectionMapping",
+        "ValueCollectionMapping",
+        "ValuesFromCollectionMapping",
+    )
+    fun `the configuration entities belong to exactly one persistence unit`(entityName: String) {
+        assertThat(entityNamesOf("configurationEntityManagerFactory")).contains(entityName)
+        listOf(
+            "ownSchemaEntityManagerFactory",
+            "integrationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(entityNamesOf(beanName))
+                .describedAs(beanName)
+                .doesNotContain(entityName)
+        }
+    }
+
+    /**
+     * Configuration-service byttet ut Spring Boots validator med sin egen. Her er den avgrenset til
+     * configuration-domenet, så MVC og de andre domenene fortsatt validerer slik de gjorde før.
+     */
+    @Test
+    fun `the configuration validator factory is used only by the configuration persistence unit`() {
+        val configurationValidatorFactory = context.getBean("configurationHibernateValidatorFactory")
+
+        assertThat(context.getBean(Validator::class.java))
+            .isSameAs(context.getBean("defaultValidator"))
+        assertThat(validationFactoryOf("configurationEntityManagerFactory"))
+            .isSameAs(configurationValidatorFactory)
+        listOf(
+            "integrationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(validationFactoryOf(beanName)).describedAs(beanName).isNotSameAs(configurationValidatorFactory)
+        }
+    }
+
+    @Test
+    fun `only the integration persistence unit skips bean validation on save`() {
+        assertThat(validationModeOf("integrationEntityManagerFactory")).hasToString("NONE")
+        listOf(
+            "configurationEntityManagerFactory",
+            "valueConvertingEntityManagerFactory",
+            "discoveryEntityManagerFactory",
+        ).forEach { beanName ->
+            assertThat(validationModeOf(beanName)).describedAs(beanName).hasToString("AUTO")
+        }
+    }
+
     @ParameterizedTest
     @CsvSource(
         "IntegrationMetadata",
@@ -153,16 +228,18 @@ class ApplicationTest : CatalogIntegrationTest() {
     }
 
     /**
-     * Klientene — mapping-service, configuration-service, acos-gateway og gateways bygget på
-     * flyt-gateway-starter — skal ikke bygges eller deployes på nytt. Topic-navnene er derfor
-     * kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe klienten sender.
+     * Klientene — mapping-service, acos-gateway og gateways bygget på
+     * flyt-gateway-starter eller flyt-web-instance-gateway — skal ikke bygges eller deployes på nytt.
+     * Topic-navnene er derfor kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe
+     * klienten sender.
      */
     @ParameterizedTest
     @CsvSource(
         "valueConversionByIdRequestConsumer,       test-no.flyt.request.value-converting.by.value-converting-id",
-        "metadataByMetadataIdRequestConsumer,      test-no.flyt.request.metadata.by.metadata-id",
-        "instanceMetadataByMetadataIdRequestConsumer, test-no.flyt.request.instance-metadata.by.metadata-id",
         "integrationMetadataEventConsumer,         test-no.flyt.event.integration-metadata-received",
+        "integrationBySourceApplicationAndIntegrationIdRequestConsumer, test-no.flyt.request.integration.by.source-application-id-and-source-application-integration-id",
+        "activeConfigurationIdRequestConsumer,     test-no.flyt.request.active-configuration-id.by.integration-id",
+        "mappingByConfigurationIdRequestConsumer,  test-no.flyt.request.mapping.by.configuration-id",
     )
     fun `each consumer listens on the topic its clients produce to`(
         beanName: String,
@@ -171,6 +248,32 @@ class ApplicationTest : CatalogIntegrationTest() {
         val container = context.getBean(beanName, ConcurrentMessageListenerContainer::class.java)
 
         assertThat(container.containerProperties.topics).containsExactly(topic)
+    }
+
+    /**
+     * Integration, configuration og discovery slår opp i hverandre med lokale kall. De fire interne
+     * request/reply-kontraktene hadde ingen andre klienter, og topicene avvikles etter at alle tenants
+     * er over.
+     */
+    @ParameterizedTest
+    @CsvSource(
+        "test-no.flyt.request.integration.by.integration-id",
+        "test-no.flyt.request.configuration.by.configuration-id",
+        "test-no.flyt.request.metadata.by.metadata-id",
+        "test-no.flyt.request.instance-metadata.by.metadata-id",
+    )
+    fun `no consumer listens on the internal request topics the domains used to call each other over`(topic: String) {
+        val listenedTopics =
+            context
+                .getBeansOfType(ConcurrentMessageListenerContainer::class.java)
+                .values
+                .flatMap {
+                    it.containerProperties.topics
+                        .orEmpty()
+                        .toList()
+                }
+
+        assertThat(listenedTopics).doesNotContain(topic)
     }
 
     @Test
@@ -201,6 +304,16 @@ class ApplicationTest : CatalogIntegrationTest() {
             else -> error("Ukjent skjema: $property")
         }
 
+    private fun validationFactoryOf(beanName: String): Any? =
+        context
+            .getBean(beanName, EntityManagerFactory::class.java)
+            .properties[AvailableSettings.JAKARTA_VALIDATION_FACTORY]
+
+    private fun validationModeOf(beanName: String): Any? =
+        context
+            .getBean(beanName, EntityManagerFactory::class.java)
+            .properties[AvailableSettings.JAKARTA_VALIDATION_MODE]
+
     private fun entityNamesOf(beanName: String): List<String> =
         context
             .getBean(beanName, EntityManagerFactory::class.java)
@@ -210,6 +323,7 @@ class ApplicationTest : CatalogIntegrationTest() {
     companion object {
         private const val REVISION_ENTITY = "ActorRevisionEntity"
         private const val VALUE_CONVERSION_ENTITY = "ValueConversion"
+        private const val INTEGRATION_ENTITY = "Integration"
 
         private val LEGACY_CHECKSUMS: Map<String, Map<String, Int>> =
             ApplicationTest::class.java

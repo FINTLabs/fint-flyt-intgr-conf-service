@@ -50,9 +50,10 @@ fun EntityManagerFactoryBuilder.catalogEntityManagerFactory(
     schema: String,
     persistenceUnit: String,
     packages: List<String>,
+    properties: Map<String, Any> = emptyMap(),
 ): LocalContainerEntityManagerFactoryBean =
     dataSource(dataSource)
         .packages(*packages.toTypedArray())
-        .properties(mapOf(AvailableSettings.DEFAULT_SCHEMA to schema))
+        .properties(properties + (AvailableSettings.DEFAULT_SCHEMA to schema))
         .persistenceUnit(persistenceUnit)
         .build()
