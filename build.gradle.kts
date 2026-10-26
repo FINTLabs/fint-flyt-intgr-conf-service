@@ -61,7 +61,7 @@ extra["tomcat.version"] = "10.1.59"
 
 dependencies {
     constraints {
-        implementation("at.yawk.lz4:lz4-java:1.12.0") {
+        implementation("at.yawk.lz4:lz4-java:1.12.1") {
             because("Fixes CVE-2026-59949 in the kafka-clients transitive dependency")
         }
         testImplementation("org.apache.commons:commons-compress:1.28.0") {
