@@ -211,3 +211,17 @@ Overlayene setter ingress-rute, `server.servlet.context-path`, probe- og metrics
 autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med to unntak som står i
 `render-overlay.sh`: de tre tidligere Viken-fylkene slipper også inn brukere fra `viken.no` og
 `frid-iks.no`, og oauth2-secreten i `ra-no` bruker andre nøkkelnavn enn de øvrige namespacene.
+
+## Låsing av avhengigheter
+
+Bygget bruker [Gradle dependency locking](https://docs.gradle.org/current/userguide/dependency_locking.html), slik at hvert bygg løser opp nøyaktig de samme direkte og transitive versjonene. De låste versjonene ligger i de committede `gradle.lockfile`-filene. En PR viser derfor alle transitive versjonsendringer den fører med seg. Gradle-plugins låses ikke, fordi Dependabot bare oppdaterer `gradle.lockfile`; versjonene deres er i stedet låst i `plugins`-blokka.
+
+**Automatisk (Dependabot):** Dependabot oppdaterer lockfilene i sine egne PR-er, så det trengs ingen manuelle steg. Hvis to Dependabot-PR-er kommer i konflikt i en lockfile, rebaser Dependabot den gjenværende etter at den første er merget. Skjer ikke det, kommenter `@dependabot recreate` på PR-en.
+
+**Manuelt:** Alle endringer du gjør for hånd som påvirker oppløsningen av avhengigheter, krever at lockfilene regenereres. Det gjelder versjoner, `extra[...]`-properties, constraints og nye eller fjernede avhengigheter:
+
+```bash
+./gradlew dependencies --write-locks
+```
+
+Commit de oppdaterte lockfilene sammen med endringen. Glemmer du det, feiler bygget både lokalt og i CI med en feilmelding om at den oppløste versjonen «is not part of the dependency lock state».

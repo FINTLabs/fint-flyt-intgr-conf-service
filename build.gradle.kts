@@ -29,6 +29,11 @@ kotlin {
     jvmToolchain(25)
 }
 
+// Dependabot resolves with JDK 21; an explicit release keeps JVM 25 as the resolution target so gradle.lockfile gets updated.
+tasks.withType<JavaCompile>().configureEach {
+    options.release.set(25)
+}
+
 repositories {
     mavenCentral()
     maven("https://repo.fintlabs.no/releases")
@@ -58,6 +63,10 @@ extra["log4j2.version"] = "2.26.1"
 extra["netty.version"] = "4.1.139.Final"
 extra["postgresql.version"] = "42.7.12"
 extra["tomcat.version"] = "10.1.59"
+
+dependencyLocking {
+    lockAllConfigurations()
+}
 
 dependencies {
     constraints {
