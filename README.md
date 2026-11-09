@@ -125,6 +125,23 @@ en editor gjør uoppfordret. `.editorconfig` slår av `trim_trailing_whitespace`
 feiler CI med filnavn og begge verdiene. Den filen skal ikke oppdateres for å få testen grønn — da
 er invarianten brutt, og migreringen skal tilbakestilles.
 
+## Internt klient-API
+
+Endepunktene under `/api/intern-klient` erstatter request/reply-topicene under Kafka (FFS-2392).
+Kallene må ha et token fra OAuth-klienten `fint-flyt-intgr-conf-oauth2-client`. Secreten legges inn
+med `envFrom` og gir `fint.sso.client-id`, som brukes som `authorized-client-ids`. Den eksisterende
+authorization-klienten er mappet til `fint.flyt.authorization.sso.*`, så de to kolliderer ikke.
+
+| Endepunkt                                                                         | Erstatter topic                                                                      |
+|-----------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| `GET /integrasjoner?sourceApplicationId={id}&sourceApplicationIntegrationId={id}` | `request.integration.by.source-application-id-and-source-application-integration-id` |
+| `GET /integrasjoner/{integrationId}/aktiv-konfigurasjon-id`                       | `request.active-configuration-id.by.integration-id`                                  |
+| `GET /konfigurasjoner/{configurationId}/mapping`                                  | `request.mapping.by.configuration-id`                                                |
+| `GET /value-convertings/{valueConvertingId}`                                      | `request.value-converting.by.value-converting-id`                                    |
+
+Ukjent ID gir 404, også når integrasjonen finnes, men mangler aktiv konfigurasjon. Svarene har samme
+JSON-form som Kafka-svarene.
+
 ## Kafka
 
 Topic-konfigurasjon opprettes og endres når konsument-bønnene bygges, altså ved oppstart.
