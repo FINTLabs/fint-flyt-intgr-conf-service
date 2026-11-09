@@ -23,6 +23,7 @@ import org.springframework.test.context.TestPropertySource
         "novari.kafka.topic.org-id=test-no",
         "fint.flyt.authorization.sso.client-id=test-client",
         "fint.flyt.authorization.sso.client-secret=test-secret",
+        "fint.sso.client-id=test-intgr-conf-client",
     ],
 )
 abstract class CatalogIntegrationTest {

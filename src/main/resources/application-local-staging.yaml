@@ -7,6 +7,8 @@ fint:
       sso:
         client-id: local
         client-secret: local
+  sso:
+    client-id: local
 
 novari:
   flyt:
