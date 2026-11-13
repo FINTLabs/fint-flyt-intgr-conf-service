@@ -2,6 +2,7 @@ package no.novari.flyt.catalog.integration.web
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import no.novari.flyt.catalog.integration.api.IntegrationController
+import no.novari.flyt.catalog.integration.api.IntegrationInternalClientController
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.springframework.beans.TypeMismatchException
 import org.springframework.http.HttpHeaders
@@ -18,7 +19,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 
-@ControllerAdvice(assignableTypes = [IntegrationController::class])
+@ControllerAdvice(assignableTypes = [IntegrationController::class, IntegrationInternalClientController::class])
 class GlobalExceptionHandler(
     private val validationErrorsFormattingService: ValidationErrorsFormattingService,
 ) : ResponseEntityExceptionHandler() {

@@ -31,6 +31,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
     assignableTypes = [
         ValueConversionController::class,
         ValueConversionHistoryController::class,
+        ValueConversionInternalClientController::class,
     ],
 )
 class ValueConversionExceptionHandler : ResponseEntityExceptionHandler() {
