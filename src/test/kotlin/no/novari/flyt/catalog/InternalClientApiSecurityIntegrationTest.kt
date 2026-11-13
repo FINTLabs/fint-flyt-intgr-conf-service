@@ -46,8 +46,8 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
 
     @ParameterizedTest
     @MethodSource("endpoints")
-    fun `accepts token from intgr-conf client and returns 404 for unknown id`(path: String) {
-        givenTokenForClient("test-intgr-conf-client")
+    fun `accepts token from internal client and returns 404 for unknown id`(path: String) {
+        givenTokenForClient("test-client")
 
         assertThat(get(path, token = "token")).isEqualTo(HttpStatus.NOT_FOUND)
     }
