@@ -26,8 +26,8 @@ C4Context
     Rel(utvikler, frontend, "Bruker")
     Rel(frontend, katalog, "Leser og endrer", "HTTPS/JSON, JWT")
     Rel(gateways, katalog, "Publiserer metadata og slår opp integrasjoner", "Kafka, HTTPS")
-    Rel(mapping, katalog, "Henter konfigurasjon, mapping og verdikonverteringer", "Kafka request/reply")
-    Rel(katalog, authorization, "Tilgang og brukernavn", "HTTPS, Kafka")
+    Rel(mapping, katalog, "Henter konfigurasjon, mapping og verdikonverteringer", "HTTPS")
+    Rel(katalog, authorization, "Tilgang og brukernavn", "HTTPS")
     Rel(katalog, idp, "Validerer JWT og henter klienttoken", "OIDC/OAuth2")
 
     UpdateRelStyle(saksbehandler, frontend, $textColor="#3B82F6", $lineColor="#3B82F6")
@@ -45,7 +45,7 @@ Blå boks er katalogtjenesten, grå er eksterne systemer.
 ## Brukere
 
 | Bruker      | Type   | Behov                                                                                          |
-|-------------|--------|------------------------------------------------------------------------------------------------|
+| ----------- | ------ | ---------------------------------------------------------------------------------------------- |
 | Flyt-bruker | Person | Opprette og aktivere integrasjoner, bygge konfigurasjoner og vedlikeholde verdikonverteringer. |
 | Utvikler    | Person | Sette opp og feilsøke integrasjoner på vegne av fylkene.                                       |
 
@@ -54,13 +54,13 @@ og roller som slipper inn, settes i overlayet for hver tenant.
 
 ## Eksterne systemer
 
-| System                | Retning | Integrasjon         | Hva det brukes til                                                                                    |
-|-----------------------|---------|---------------------|-------------------------------------------------------------------------------------------------------|
-| Flyt-frontend         | Inn     | HTTPS/JSON          | Det interne API-et under `/api/intern`.                                                               |
-| Instans-gateways      | Inn     | Kafka, HTTPS        | Publiserer integrasjonsmetadata og slår opp integrasjonen for en innkommende instans.                 |
-| mapping-service       | Inn     | Kafka request/reply | Henter aktiv konfigurasjon for en integrasjon, mappingen for en konfigurasjon og verdikonverteringer. |
-| authorization-service | Ut      | HTTPS, Kafka        | Hvilke kildeapplikasjoner en bruker har tilgang til, visningsnavn for aktører og klientautorisasjon.  |
-| FINT IdP              | Ut      | OIDC/OAuth2         | Validering av innkomne JWT og client credentials mot authorization-service.                           |
+| System                | Retning | Integrasjon  | Hva det brukes til                                                                                    |
+| --------------------- | ------- | ------------ | ----------------------------------------------------------------------------------------------------- |
+| Flyt-frontend         | Inn     | HTTPS/JSON   | Det interne API-et under `/api/intern`.                                                               |
+| Instans-gateways      | Inn     | Kafka, HTTPS | Publiserer integrasjonsmetadata og slår opp integrasjonen for en innkommende instans.                 |
+| mapping-service       | Inn     | HTTPS        | Henter aktiv konfigurasjon for en integrasjon, mappingen for en konfigurasjon og verdikonverteringer. |
+| authorization-service | Ut      | HTTPS        | Hvilke kildeapplikasjoner en bruker har tilgang til og visningsnavn for aktører.                      |
+| FINT IdP              | Ut      | OIDC/OAuth2  | Validering av innkomne JWT og client credentials mot authorization-service.                           |
 
 Kafka og PostgreSQL er plattformtjenester og vises på containernivå.
 
