@@ -17,7 +17,13 @@ import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import java.time.Instant
 
-@RestControllerAdvice(assignableTypes = [ConfigurationController::class, ConfigurationHistoryController::class])
+@RestControllerAdvice(
+    assignableTypes = [
+        ConfigurationController::class,
+        ConfigurationHistoryController::class,
+        ConfigurationInternalClientController::class,
+    ],
+)
 class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(
