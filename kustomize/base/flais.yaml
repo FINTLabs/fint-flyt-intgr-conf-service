@@ -40,7 +40,7 @@ spec:
         path: path
   env:
     - name: JAVA_TOOL_OPTIONS
-      value: '-XX:+ExitOnOutOfMemoryError -Xmx1536M -Xms1536M'
+      value: '-XX:+ExitOnOutOfMemoryError -Xmx1536M -Xms1536M -XX:-UseBASE64Intrinsics'
     - name: fint.flyt.authorization.sso.client-id
       valueFrom:
         secretKeyRef:
