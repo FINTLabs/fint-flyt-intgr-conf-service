@@ -27,27 +27,27 @@ C4Component
     Rel(frontend, integration, "HTTPS")
     Rel(frontend, configuration, "HTTPS")
     Rel(gateways, discovery, "POST /metadata", "HTTPS")
-    Rel(mapping, kafka, "Oppslag")
-    Rel(gateways, kafka, "Oppslag og hendelser")
-    Rel(valueconverting, kafka, "Svarer")
-    Rel(integration, kafka, "Svarer")
-    Rel(configuration, kafka, "Svarer")
+    Rel(gateways, integration, "Slår opp integrasjon", "HTTPS")
+    Rel(gateways, kafka, "Hendelser")
+    Rel(mapping, integration, "Aktiv konfigurasjon", "HTTPS")
+    Rel(mapping, configuration, "Mapping", "HTTPS")
+    Rel(mapping, valueconverting, "Verdikonverteringer", "HTTPS")
     Rel(kafka, discovery, "Metadatahendelser")
     Rel(integration, configuration, "Henter konfigurasjon")
     Rel(configuration, integration, "Henter integrasjon")
     Rel(configuration, discovery, "Henter metadata")
     Rel(persistence, db, "JDBC")
-    Rel(security, authorization, "HTTPS, Kafka")
+    Rel(security, authorization, "HTTPS")
 
     UpdateRelStyle(frontend, valueconverting, $textColor="#3B82F6", $lineColor="#3B82F6")
     UpdateRelStyle(frontend, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-40")
     UpdateRelStyle(frontend, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="40", $offsetY="20")
     UpdateRelStyle(gateways, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="80", $offsetY="20")
-    UpdateRelStyle(mapping, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-20")
+    UpdateRelStyle(gateways, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-60")
     UpdateRelStyle(gateways, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-20")
-    UpdateRelStyle(valueconverting, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-80", $offsetY="-30")
-    UpdateRelStyle(integration, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-20")
-    UpdateRelStyle(configuration, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-40", $offsetY="-20")
+    UpdateRelStyle(mapping, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-20")
+    UpdateRelStyle(mapping, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-40", $offsetY="-20")
+    UpdateRelStyle(mapping, valueconverting, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-80", $offsetY="-30")
     UpdateRelStyle(kafka, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="30")
     UpdateRelStyle(integration, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-30")
     UpdateRelStyle(configuration, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="20")
@@ -105,16 +105,14 @@ Pakke: [`no.novari.flyt.catalog.integration`](../../src/main/kotlin/no/novari/fl
 Integrasjonene: hvilken kildeapplikasjon og integrasjons-ID de gjelder, destinasjonen, om de er
 aktive og hvilken konfigurasjon som er aktiv.
 
-| Klasse                                                    | Ansvar                                                              |
-|-----------------------------------------------------------|---------------------------------------------------------------------|
-| `api.IntegrationController`                               | `/api/intern/integrasjoner`, med tilgangssjekk per kildeapplikasjon |
-| `application.IntegrationService`                          | Oppslag, opprettelse og oppdatering                                 |
-| `application.IntegrationUpdateValidationService`          | Validerer en endring før den lagres                                 |
-| `validation.IntegrationValidatorFactory`                  | Bygger validatoren med konfigurasjonen fra Configuration            |
-| `kafka.IntegrationRequestConsumerConfiguration`           | Oppslag på kildeapplikasjon og kildeapplikasjonens integrasjons-ID  |
-| `kafka.ActiveConfigurationIdRequestConsumerConfiguration` | Aktiv konfigurasjon for en integrasjon                              |
-| `persistence.IntegrationRepository`                       | Spring Data-repository mot integration-skjemaet                     |
-| `web.GlobalExceptionHandler`                              | Problem Details for `IntegrationController`                         |
+| Klasse                                           | Ansvar                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| `api.IntegrationController`                      | `/api/intern/integrasjoner`, med tilgangssjekk per kildeapplikasjon |
+| `application.IntegrationService`                 | Oppslag, opprettelse og oppdatering                                 |
+| `application.IntegrationUpdateValidationService` | Validerer en endring før den lagres                                 |
+| `validation.IntegrationValidatorFactory`         | Bygger validatoren med konfigurasjonen fra Configuration            |
+| `persistence.IntegrationRepository`              | Spring Data-repository mot integration-skjemaet                     |
+| `web.GlobalExceptionHandler`                     | Problem Details for `IntegrationController`                         |
 
 Persistence uniten har Hibernates bean-validering ved lagring slått av. Valideringen skjer i
 API-laget: med `@Valid` ved opprettelse og i `IntegrationUpdateValidationService` ved endring.
@@ -126,18 +124,17 @@ Pakke: [`no.novari.flyt.catalog.configuration`](../../src/main/kotlin/no/novari/
 Konfigurasjonene: hvilken integrasjon og metadataversjon de gjelder, om de er fullført, og
 mappingtreet fra instansfelter til destinasjonens felter.
 
-| Klasse                                            | Ansvar                                                                      |
-|---------------------------------------------------|-----------------------------------------------------------------------------|
-| `ConfigurationController`                         | `/api/intern/konfigurasjoner`                                               |
-| `ConfigurationHistoryController`                  | `/history` og `/{id}/history`                                               |
-| `ConfigurationService`                            | Oppslag, lagring med versjonering, oppdatering og sletting                  |
-| `ConfigurationHistoryService`                     | Envers-historikk                                                            |
-| `mapping.*`                                       | Mapping mellom entiteter og DTO-er for hele mappingtreet                    |
-| `validation.ConfigurationValidatorFactory`        | Bygger validatoren med integrasjon og metadata fra Integration og Discovery |
-| `validation.ValidatorConfiguration`               | Domenets egen `ValidatorFactory`, `configurationHibernateValidatorFactory`  |
-| `validation.constraints.*`                        | Regler for mappingtreet, nøkler og verdityper                               |
-| `kafka.ConfigurationRequestConsumerConfiguration` | Mappingtreet for en konfigurasjon                                           |
-| `ApiExceptionHandler`                             | Feilsvar for de to kontrollerne                                             |
+| Klasse                                     | Ansvar                                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| `ConfigurationController`                  | `/api/intern/konfigurasjoner`                                               |
+| `ConfigurationHistoryController`           | `/history` og `/{id}/history`                                               |
+| `ConfigurationService`                     | Oppslag, lagring med versjonering, oppdatering og sletting                  |
+| `ConfigurationHistoryService`              | Envers-historikk                                                            |
+| `mapping.*`                                | Mapping mellom entiteter og DTO-er for hele mappingtreet                    |
+| `validation.ConfigurationValidatorFactory` | Bygger validatoren med integrasjon og metadata fra Integration og Discovery |
+| `validation.ValidatorConfiguration`        | Domenets egen `ValidatorFactory`, `configurationHibernateValidatorFactory`  |
+| `validation.constraints.*`                 | Regler for mappingtreet, nøkler og verdityper                               |
+| `ApiExceptionHandler`                      | Feilsvar for de to kontrollerne                                             |
 
 Domenets `ValidatorFactory` brukes både av `ConfigurationValidatorFactory` og av Hibernate ved
 lagring i configuration sin persistence unit. MVC-valideringen og de andre domenene bruker Spring
@@ -152,15 +149,14 @@ Pakke: [`no.novari.flyt.catalog.valueconverting`](../../src/main/kotlin/no/novar
 Verdikonverteringene: tabeller som oversetter verdier fra kildeapplikasjonen til verdier
 destinasjonen forstår.
 
-| Klasse                                                                 | Ansvar                                                        |
-|------------------------------------------------------------------------|---------------------------------------------------------------|
-| `api.ValueConversionController`                                        | `/api/intern/value-convertings`, med filtrering og paginering |
-| `api.ValueConversionHistoryController`                                 | `/history` og `/{id}/history`                                 |
-| `application.ValueConversionService`                                   | Oppslag, opprettelse, erstatning og sletting                  |
-| `domain.ValueConversionHistoryService`                                 | Envers-historikk                                              |
-| `infrastructure.messaging.ValueConversionRequestConsumerConfiguration` | Verdikonvertering på ID                                       |
-| `infrastructure.persistence.ValueConversionRepository`                 | Spring Data-repository med spesifikasjoner for filtrering     |
-| `api.ValueConversionExceptionHandler`                                  | Problem Details for de to kontrollerne                        |
+| Klasse                                                 | Ansvar                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| `api.ValueConversionController`                        | `/api/intern/value-convertings`, med filtrering og paginering |
+| `api.ValueConversionHistoryController`                 | `/history` og `/{id}/history`                                 |
+| `application.ValueConversionService`                   | Oppslag, opprettelse, erstatning og sletting                  |
+| `domain.ValueConversionHistoryService`                 | Envers-historikk                                              |
+| `infrastructure.persistence.ValueConversionRepository` | Spring Data-repository med spesifikasjoner for filtrering     |
+| `api.ValueConversionExceptionHandler`                  | Problem Details for de to kontrollerne                        |
 
 ## Discovery
 
@@ -170,7 +166,7 @@ Metadataen kildeapplikasjonene publiserer: én versjon per endring av en integra
 instansmetadata som beskriver feltene, kategoriene og objektsamlingene i en instans.
 
 | Klasse                                                | Ansvar                                            |
-|-------------------------------------------------------|---------------------------------------------------|
+| ----------------------------------------------------- | ------------------------------------------------- |
 | `IntegrationMetadataController`                       | `/api/intern/metadata`                            |
 | `IntegrationMetadataService`                          | Oppslag og lagring av metadataversjoner           |
 | `kafka.IntegrationMetadataEventConsumerConfiguration` | Konsumerer `event.integration-metadata-received`  |
@@ -222,12 +218,12 @@ domenets transaksjonsmanager.
 ## Tverrgående
 
 | Komponent  | Hvor                                                                            | Innhold                                                                        |
-|------------|---------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Validering | [`catalog.validation`](../../src/main/kotlin/no/novari/flyt/catalog/validation) | `ValidationErrorsFormattingService` og `HibernateConstraintValidator`          |
 | OpenAPI    | [`catalog.openapi`](../../src/main/kotlin/no/novari/flyt/catalog/openapi)       | Felles OpenAPI-oppsett. Hvert domene har sin egen gruppe i `<domene>.openapi`. |
 | Sikkerhet  | `flyt-web-resource-server`                                                      | JWT-validering, roller per organisasjon og `UserAuthorizationService`          |
 | Audit      | `flyt-audit-starter`                                                            | Auditkolonner, Envers-historikk og visningsnavn for aktører                    |
-| Kafka      | `flyt-kafka`                                                                    | Request/reply-maler, topic-navn og feilhåndtering for konsumentene             |
+| Kafka      | `flyt-kafka`                                                                    | Topic-navn og feilhåndtering for metadatakonsumenten                           |
 
 `@SpringBootApplication` skanner `no.novari.flyt.catalog`, `no.novari.flyt.webresourceserver` og
 `no.novari.kafka`, fordi bibliotekene registrerer deler av bønnene sine som `@Service`-klasser.

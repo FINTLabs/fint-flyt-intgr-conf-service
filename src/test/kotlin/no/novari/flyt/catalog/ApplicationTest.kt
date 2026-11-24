@@ -228,32 +228,26 @@ class ApplicationTest : CatalogIntegrationTest() {
     }
 
     /**
-     * Klientene — mapping-service, acos-gateway og gateways bygget på
-     * flyt-gateway-starter eller flyt-web-instance-gateway — skal ikke bygges eller deployes på nytt.
-     * Topic-navnene er derfor kontrakt, og de bygges av tjenestens egen konfigurasjon, ikke av noe
-     * klienten sender.
+     * Klientene — acos-gateway og gateways bygget på flyt-gateway-starter — skal ikke bygges eller
+     * deployes på nytt. Topic-navnet er derfor kontrakt, og det bygges av tjenestens egen
+     * konfigurasjon, ikke av noe klienten sender.
      */
-    @ParameterizedTest
-    @CsvSource(
-        "valueConversionByIdRequestConsumer,       test-no.flyt.request.value-converting.by.value-converting-id",
-        "integrationMetadataEventConsumer,         test-no.flyt.event.integration-metadata-received",
-        "integrationBySourceApplicationAndIntegrationIdRequestConsumer, test-no.flyt.request.integration.by.source-application-id-and-source-application-integration-id",
-        "activeConfigurationIdRequestConsumer,     test-no.flyt.request.active-configuration-id.by.integration-id",
-        "mappingByConfigurationIdRequestConsumer,  test-no.flyt.request.mapping.by.configuration-id",
-    )
-    fun `each consumer listens on the topic its clients produce to`(
-        beanName: String,
-        topic: String,
-    ) {
-        val container = context.getBean(beanName, ConcurrentMessageListenerContainer::class.java)
+    @Test
+    fun `the metadata consumer listens on the topic its clients produce to`() {
+        val container =
+            context.getBean(
+                "integrationMetadataEventConsumer",
+                ConcurrentMessageListenerContainer::class.java,
+            )
 
-        assertThat(container.containerProperties.topics).containsExactly(topic)
+        assertThat(
+            container.containerProperties.topics,
+        ).containsExactly("test-no.flyt.event.integration-metadata-received")
     }
 
     /**
-     * Integration, configuration og discovery slår opp i hverandre med lokale kall. De fire interne
-     * request/reply-kontraktene hadde ingen andre klienter, og topicene avvikles etter at alle tenants
-     * er over.
+     * Request/reply er erstattet av det interne klient-API-et (FFS-2392) og fjernet (FFS-2400). De fire
+     * første topicene brukte domenene til å slå opp i hverandre før de ble samlet i denne tjenesten.
      */
     @ParameterizedTest
     @CsvSource(
@@ -261,8 +255,12 @@ class ApplicationTest : CatalogIntegrationTest() {
         "test-no.flyt.request.configuration.by.configuration-id",
         "test-no.flyt.request.metadata.by.metadata-id",
         "test-no.flyt.request.instance-metadata.by.metadata-id",
+        "test-no.flyt.request.value-converting.by.value-converting-id",
+        "test-no.flyt.request.integration.by.source-application-id-and-source-application-integration-id",
+        "test-no.flyt.request.active-configuration-id.by.integration-id",
+        "test-no.flyt.request.mapping.by.configuration-id",
     )
-    fun `no consumer listens on the internal request topics the domains used to call each other over`(topic: String) {
+    fun `no consumer listens on a request topic`(topic: String) {
         val listenedTopics =
             context
                 .getBeansOfType(ConcurrentMessageListenerContainer::class.java)

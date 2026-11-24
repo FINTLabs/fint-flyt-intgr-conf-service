@@ -127,14 +127,15 @@ er invarianten brutt, og migreringen skal tilbakestilles.
 
 ## Internt klient-API
 
-Endepunktene under `/api/intern-klient` erstatter request/reply-topicene under Kafka (FFS-2392).
+Gatewayene og mapping-service slår opp i katalogen med endepunktene under `/api/intern-klient`. De
+erstattet request/reply-topicene under Kafka (FFS-2392), som er fjernet (FFS-2400).
 Kallene må ha et token fra `fint-flyt-authorization-oauth2-client`. Den brukes som felles klient for
 interne kall mellom FLYT-tjenester, fordi namerator ikke lager nye NAM-klienter. Tjenesten har den allerede,
 mappet til `fint.flyt.authorization.sso.*`, og `authorized-client-ids` er
 `${fint.flyt.authorization.sso.client-id}`.
 
 | Endepunkt                                                                         | Erstatter topic                                                                      |
-|-----------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `GET /integrasjoner?sourceApplicationId={id}&sourceApplicationIntegrationId={id}` | `request.integration.by.source-application-id-and-source-application-integration-id` |
 | `GET /integrasjoner/{integrationId}/aktiv-konfigurasjon-id`                       | `request.active-configuration-id.by.integration-id`                                  |
 | `GET /konfigurasjoner/{configurationId}/mapping`                                  | `request.mapping.by.configuration-id`                                                |
@@ -148,23 +149,17 @@ JSON-form som Kafka-svarene.
 Topic-konfigurasjon opprettes og endres når konsument-bønnene bygges, altså ved oppstart.
 
 Consumer group er `${fint.application-id}`, med `auto.offset.reset=earliest` som er bibliotekets
-default. Meldinger kan derfor bli behandlet på nytt. Request/reply-konsumentene er rene lesninger,
-og et avspilt svar kan ikke matches mot en pågående forespørsel fordi correlation-ID-ene er UUID-er.
+default. Meldinger kan derfor bli behandlet på nytt.
 
 Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID:
 
-| Topic                                                                                | Klient                                                                  |
-|--------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| `request.value-converting.by.value-converting-id`                                    | mapping-service                                                         |
-| `request.integration.by.source-application-id-and-source-application-integration-id` | gateways bygget på flyt-gateway-starter eller flyt-web-instance-gateway |
-| `request.active-configuration-id.by.integration-id`                                  | mapping-service                                                         |
-| `request.mapping.by.configuration-id`                                                | mapping-service                                                         |
-| `event.integration-metadata-received`                                                | acos-gateway og gateways bygget på flyt-gateway-starter                 |
+| Topic                                 | Klient                                                  |
+| ------------------------------------- | ------------------------------------------------------- |
+| `event.integration-metadata-received` | acos-gateway og gateways bygget på flyt-gateway-starter |
 
-`event.integration-metadata-received` er den eneste hendelsen katalogen konsumerer, og den eneste
-kontrakten der avspillingen har en skrivende effekt. Avspillingen er ufarlig fordi konsumet er
-idempotent i to lag: `IntegrationMetadataEventHandler` sin `exists`-sjekk og den unike constrainten
-på `(source_application_id, source_application_integration_id, version)` i `V1__init.sql`.
+`event.integration-metadata-received` er den eneste hendelsen katalogen konsumerer. Avspillingen er
+ufarlig fordi konsumet er idempotent i to lag: `IntegrationMetadataEventHandler` sin `exists`-sjekk
+og den unike constrainten på `(source_application_id, source_application_integration_id, version)` i `V1__init.sql`.
 
 ## OpenAPI-dokumentasjon
 
