@@ -1,6 +1,7 @@
 package no.novari.flyt.catalog.discovery.openapi
 
 import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
+import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_CLIENT_API
 import org.springdoc.core.models.GroupedOpenApi
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -15,5 +16,6 @@ class DiscoveryOpenApiConfiguration {
             .pathsToMatch(
                 "$INTERNAL_API/metadata",
                 "$INTERNAL_API/metadata/**",
+                "$INTERNAL_CLIENT_API/metadata",
             ).build()
 }
