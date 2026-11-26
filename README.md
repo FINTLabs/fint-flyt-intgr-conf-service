@@ -127,7 +127,7 @@ er invarianten brutt, og migreringen skal tilbakestilles.
 
 ## Internt klient-API
 
-Gatewayene og mapping-service slår opp i katalogen med endepunktene under `/api/intern-klient`. De
+Gatewayene og mapping-service slår opp i katalogen med leseendepunktene under `/api/intern-klient`. De
 erstattet request/reply-topicene under Kafka (FFS-2392), som er fjernet (FFS-2400).
 Kallene må ha et token fra `fint-flyt-authorization-oauth2-client`. Den brukes som felles klient for
 interne kall mellom FLYT-tjenester, fordi namerator ikke lager nye NAM-klienter. Tjenesten har den allerede,
@@ -141,8 +141,20 @@ mappet til `fint.flyt.authorization.sso.*`, og `authorized-client-ids` er
 | `GET /konfigurasjoner/{configurationId}/mapping`                                  | `request.mapping.by.configuration-id`                                                |
 | `GET /value-convertings/{valueConvertingId}`                                      | `request.value-converting.by.value-converting-id`                                    |
 
-Ukjent ID gir 404, også når integrasjonen finnes, men mangler aktiv konfigurasjon. Svarene har samme
-JSON-form som Kafka-svarene.
+`GET /api/intern-klient/integrasjoner?sourceApplicationId={id}&sourceApplicationIntegrationId={id}`
+returnerer `200` med `state` lik `ACTIVE` eller `DEACTIVATED` for en kjent integrasjon og `404` for en
+ukjent integrasjon. `GET /api/intern-klient/integrasjoner/{integrationId}/aktiv-konfigurasjon-id`
+gir også `404` når integrasjonen mangler aktiv konfigurasjon. Lesesvarene har samme JSON-form som Kafka-svarene.
+
+`POST /api/intern-klient/metadata` tar imot et JSON-objekt i formatet `IntegrationMetadataDto`. Tjenesten
+returnerer `201 Created` etter å ha lagret en ny versjon, `400 Bad Request` ved ugyldig forespørsel og
+`409 Conflict` med en feilmelding hvis kombinasjonen av `sourceApplicationId`,
+`sourceApplicationIntegrationId` og `version` allerede finnes. Ved samtidige kall for samme nye versjon
+lagres den én gang. En annen versjon av samme integrasjon kan registreres. Svar med `400` eller `409` har
+medietypen `application/problem+json`, med feilmeldingen i feltet `detail`.
+
+Klient-API-et gir `401 Unauthorized` ved manglende eller ugyldig token og `403 Forbidden` når tokenet
+tilhører en klient uten intern tilgang.
 
 ## Kafka
 
