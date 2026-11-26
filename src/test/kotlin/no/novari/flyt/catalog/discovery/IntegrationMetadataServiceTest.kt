@@ -5,15 +5,19 @@ import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpStatus
+import org.springframework.web.server.ResponseStatusException
 
 class IntegrationMetadataServiceTest {
     @Mock
@@ -157,6 +161,43 @@ class IntegrationMetadataServiceTest {
 
         assertEquals(savedDto, result)
         verify(integrationMetadataRepository).save(entity)
+    }
+
+    @Test
+    fun `reports conflict when a version was registered concurrently`() {
+        whenever(
+            integrationMetadataRepository.existsBySourceApplicationIdAndSourceApplicationIntegrationIdAndVersion(
+                sourceApplicationId,
+                "integrationId",
+                1L,
+            ),
+        ).thenReturn(false, true)
+        whenever(integrationMetadataMappingService.toEntity(dto)).thenReturn(entity)
+        whenever(integrationMetadataRepository.saveAndFlush(entity))
+            .thenThrow(DataIntegrityViolationException("Duplicate version"))
+
+        val exception = assertThrows<ResponseStatusException> { service.register(dto) }
+
+        assertEquals(HttpStatus.CONFLICT, exception.statusCode)
+        assertEquals("Metadata version already exists", exception.reason)
+    }
+
+    @Test
+    fun `preserves a storage error when the version still does not exist`() {
+        val storageError = DataIntegrityViolationException("Storage constraint violated")
+        whenever(
+            integrationMetadataRepository.existsBySourceApplicationIdAndSourceApplicationIntegrationIdAndVersion(
+                sourceApplicationId,
+                "integrationId",
+                1L,
+            ),
+        ).thenReturn(false)
+        whenever(integrationMetadataMappingService.toEntity(dto)).thenReturn(entity)
+        whenever(integrationMetadataRepository.saveAndFlush(entity)).thenThrow(storageError)
+
+        val exception = assertThrows<DataIntegrityViolationException> { service.register(dto) }
+
+        assertSame(storageError, exception)
     }
 
     private fun validIntegrationMetadataDto(

@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.context.request.WebRequest
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 
-@ControllerAdvice(assignableTypes = [IntegrationMetadataController::class])
+@ControllerAdvice(
+    assignableTypes = [IntegrationMetadataController::class, IntegrationMetadataInternalClientController::class],
+)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class IntegrationMetadataRequestExceptionHandler : ResponseEntityExceptionHandler() {
     override fun handleHttpMessageNotReadable(

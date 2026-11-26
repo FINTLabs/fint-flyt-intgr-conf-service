@@ -2,7 +2,10 @@ package no.novari.flyt.catalog.discovery
 
 import no.novari.flyt.catalog.discovery.mapping.IntegrationMetadataMappingService
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.server.ResponseStatusException
 
 @Service
 class IntegrationMetadataService(
@@ -70,6 +73,23 @@ class IntegrationMetadataService(
             sourceApplicationIntegrationId = requireNotNull(integrationMetadataDto.sourceApplicationIntegrationId),
             version = requireNotNull(integrationMetadataDto.version),
         )
+
+    fun register(integrationMetadata: IntegrationMetadataDto) {
+        checkVersionAvailable(integrationMetadata)
+        try {
+            integrationMetadataRepository.saveAndFlush(integrationMetadataMappingService.toEntity(integrationMetadata))
+        } catch (exception: DataIntegrityViolationException) {
+            // The failed repository transaction has rolled back, so a concurrently registered version is visible now.
+            checkVersionAvailable(integrationMetadata)
+            throw exception
+        }
+    }
+
+    private fun checkVersionAvailable(integrationMetadata: IntegrationMetadataDto) {
+        if (versionExists(integrationMetadata)) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Metadata version already exists")
+        }
+    }
 
     fun save(integrationMetadataDto: IntegrationMetadataDto): IntegrationMetadataDto =
         integrationMetadataMappingService.toDto(
