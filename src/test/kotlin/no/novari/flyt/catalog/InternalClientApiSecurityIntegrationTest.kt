@@ -1,5 +1,6 @@
 package no.novari.flyt.catalog
 
+import com.jayway.jsonpath.JsonPath
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
 import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 import no.novari.flyt.catalog.integration.persistence.IntegrationRepository
@@ -118,7 +119,8 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
 
         givenTokenForClient("test-client")
         try {
-            assertThat(postMetadata(integrationId, null, token = "token").statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            val invalid = postMetadata(integrationId, null, token = "token")
+            assertThat(problemDetail(invalid, HttpStatus.BAD_REQUEST)).isNotBlank()
             assertThat(registeredVersions(integrationId)).isEmpty()
             val barrier = CyclicBarrier(2)
             Executors.newFixedThreadPool(2).use { executor ->
@@ -134,12 +136,21 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
             }
             assertThat(postMetadata(integrationId, 2, token = "token").statusCode).isEqualTo(HttpStatus.CREATED)
             val duplicate = postMetadata(integrationId, 1, token = "token")
-            assertThat(duplicate.statusCode).isEqualTo(HttpStatus.CONFLICT)
-            assertThat(duplicate.body).contains("Metadata version already exists")
+            assertThat(problemDetail(duplicate, HttpStatus.CONFLICT)).isEqualTo("Metadata version already exists")
             assertThat(registeredVersions(integrationId).map { it.version }).containsExactlyInAnyOrder(1L, 2L)
         } finally {
             metadataRepository.deleteAll(registeredVersions(integrationId))
         }
+    }
+
+    private fun problemDetail(
+        response: ResponseEntity<String>,
+        status: HttpStatus,
+    ): String {
+        assertThat(response.statusCode).isEqualTo(status)
+        val contentType = requireNotNull(response.headers.contentType)
+        assertThat(contentType.isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        return JsonPath.read(requireNotNull(response.body), "$.detail")
     }
 
     private fun registeredVersions(integrationId: String) =

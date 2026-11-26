@@ -149,7 +149,8 @@ gir også `404` når integrasjonen mangler aktiv konfigurasjon. Lesesvarene har 
 returnerer `201 Created` etter å ha lagret en ny versjon, `400 Bad Request` ved ugyldig forespørsel og
 `409 Conflict` med en feilmelding hvis kombinasjonen av `sourceApplicationId`,
 `sourceApplicationIntegrationId` og `version` allerede finnes. Ved samtidige kall for samme nye versjon
-lagres den én gang. En annen versjon av samme integrasjon kan registreres.
+lagres den én gang. En annen versjon av samme integrasjon kan registreres. Svar med `400` eller `409` har
+medietypen `application/problem+json`, med feilmeldingen i feltet `detail`.
 
 Klient-API-et gir `401 Unauthorized` ved manglende eller ugyldig token og `403 Forbidden` når tokenet
 tilhører en klient uten intern tilgang.
