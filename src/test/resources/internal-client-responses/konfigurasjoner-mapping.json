@@ -1,0 +1,43 @@
+{
+  "valueMappingPerKey": {
+    "tittel": {
+      "type": "STRING",
+      "mappingString": "Sakstittel"
+    }
+  },
+  "valueCollectionMappingPerKey": {
+    "vedlegg": {
+      "elementMappings": [
+        {
+          "type": "FILE",
+          "mappingString": "$if{...}"
+        }
+      ],
+      "fromCollectionMappings": [
+        {
+          "instanceCollectionReferencesOrdered": [
+            "dokumenter"
+          ],
+          "elementMapping": {
+            "type": "DYNAMIC_STRING",
+            "mappingString": "$if{dokument.navn}"
+          }
+        }
+      ]
+    }
+  },
+  "objectMappingPerKey": {
+    "avsender": {
+      "valueMappingPerKey": {
+        "navn": {
+          "type": "STRING",
+          "mappingString": "Ola Nordmann"
+        }
+      },
+      "valueCollectionMappingPerKey": {},
+      "objectMappingPerKey": {},
+      "objectCollectionMappingPerKey": {}
+    }
+  },
+  "objectCollectionMappingPerKey": {}
+}
