@@ -1,7 +1,10 @@
 package no.novari.flyt.catalog
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.jayway.jsonpath.JsonPath
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
+import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
+import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
 import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 import no.novari.flyt.catalog.integration.persistence.IntegrationRepository
 import no.novari.flyt.catalog.integration.persistence.entity.Integration
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -19,6 +23,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.security.oauth2.jwt.BadJwtException
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -111,6 +116,100 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
     }
 
     @Test
+    fun `reads only the highest metadata version for the requested source application and integration`() {
+        givenTokenForClient("test-client")
+        val integrationId = "conexus-test-${UUID.randomUUID()}"
+        val otherIntegrationId = "$integrationId-other"
+
+        try {
+            assertThat(postMetadata(integrationId, 10, token = "token").statusCode).isEqualTo(HttpStatus.CREATED)
+            assertThat(postMetadata(integrationId, 2, token = "token").statusCode).isEqualTo(HttpStatus.CREATED)
+            assertThat(postMetadata(integrationId, 11, token = "token", sourceApplicationId = 2).statusCode)
+                .isEqualTo(HttpStatus.CREATED)
+            assertThat(postMetadata(otherIntegrationId, 12, token = "token").statusCode).isEqualTo(HttpStatus.CREATED)
+
+            val response =
+                RestClient
+                    .create("http://localhost:$port")
+                    .get()
+                    .uri(
+                        "$METADATA_PATH?sourceApplicationId=1&sourceApplicationIntegrationId={integrationId}",
+                        integrationId,
+                    ).headers { it.setBearerAuth("token") }
+                    .retrieve()
+                    .toEntity(IntegrationMetadataDto::class.java)
+
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val metadata = requireNotNull(response.body)
+            assertThat(metadata.sourceApplicationId).isEqualTo(1L)
+            assertThat(metadata.sourceApplicationIntegrationId).isEqualTo(integrationId)
+            assertThat(metadata.version).isEqualTo(10L)
+            val instanceMetadata = requireNotNull(metadata.instanceMetadata)
+            val field = instanceMetadata.instanceValueMetadata.single()
+            assertThat(field.key).isEqualTo("elevNavn")
+            assertThat(field.type).isEqualTo(InstanceValueMetadata.Type.STRING)
+            val category = instanceMetadata.categories.single()
+            assertThat(category.displayName).isEqualTo("Hoveddokument")
+            val file = requireNotNull(category.content).instanceValueMetadata.single()
+            assertThat(file.key).isEqualTo("hovedDokumentFil")
+            assertThat(file.type).isEqualTo(InstanceValueMetadata.Type.FILE)
+        } finally {
+            metadataRepository.deleteAll(registeredVersions(integrationId))
+            metadataRepository.deleteAll(registeredVersions(integrationId, sourceApplicationId = 2))
+            metadataRepository.deleteAll(registeredVersions(otherIntegrationId))
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "?sourceApplicationId=1",
+            "?sourceApplicationIntegrationId=kartlegging",
+            "?sourceApplicationId=invalid&sourceApplicationIntegrationId=kartlegging",
+            "?sourceApplicationId=1&sourceApplicationIntegrationId=",
+        ],
+    )
+    fun `rejects missing or invalid metadata lookup parameters`(query: String) {
+        givenTokenForClient("test-client")
+
+        assertThat(get("$METADATA_PATH$query", token = "token")).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
+    @Test
+    fun `rejects an invalid token for metadata lookup`() {
+        whenever(jwtDecoder.decode(any())).thenThrow(BadJwtException("Invalid token"))
+
+        assertThat(get(UNKNOWN_METADATA_PATH, token = "invalid")).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `documents metadata lookup errors with the correct OpenAPI response bodies`() {
+        val openApi =
+            RestClient
+                .create("http://localhost:$port")
+                .get()
+                .uri("/v3/api-docs/discovery")
+                .retrieve()
+                .body(JsonNode::class.java)
+        val responses =
+            requireNotNull(openApi)
+                .path("paths")
+                .path(METADATA_PATH)
+                .path("get")
+                .path("responses")
+
+        for (code in listOf("400", "404")) {
+            val content = responses.path(code).path("content")
+            assertThat(content.size()).isEqualTo(1)
+            val schema = content.path(MediaType.APPLICATION_PROBLEM_JSON_VALUE).path("schema")
+            assertThat(schema.path("\$ref").asText()).isEqualTo("#/components/schemas/ProblemDetail")
+        }
+        for (code in listOf("401", "403")) {
+            assertThat(requireNotNull(responses[code]).has("content")).isFalse()
+        }
+    }
+
+    @Test
     fun `limits metadata registration to the internal client and rejects a duplicate version`() {
         val integrationId = "conexus-test-${UUID.randomUUID()}"
         assertThat(postMetadata(integrationId, 1, token = null).statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
@@ -153,29 +252,43 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
         return JsonPath.read(requireNotNull(response.body), "$.detail")
     }
 
-    private fun registeredVersions(integrationId: String) =
-        metadataRepository.findAllBySourceApplicationIdAndSourceApplicationIntegrationId(1, integrationId)
+    private fun registeredVersions(
+        integrationId: String,
+        sourceApplicationId: Long = 1,
+    ) = metadataRepository
+        .findAllBySourceApplicationIdAndSourceApplicationIntegrationId(sourceApplicationId, integrationId)
 
     private fun postMetadata(
         integrationId: String,
         version: Long?,
         token: String?,
+        sourceApplicationId: Long = 1,
     ): ResponseEntity<String> =
         RestClient
             .create("http://localhost:$port")
             .post()
-            .uri("/api/intern-klient/metadata")
+            .uri(METADATA_PATH)
             .headers { headers -> token?.let { headers.setBearerAuth(it) } }
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 """{
-                      "sourceApplicationId":1,
+                      "sourceApplicationId":$sourceApplicationId,
                       "sourceApplicationIntegrationId":"$integrationId",
                       "integrationDisplayName":"Test",
                       "version":$version,
                       "instanceMetadata":{
                         "instanceValueMetadata":[
-                          {"displayName":"Hoveddokument","type":"FILE","key":"hovedDokumentFil"}
+                          {"displayName":"Elevens navn","type":"STRING","key":"elevNavn"}
+                        ],
+                        "categories":[
+                          {
+                            "displayName":"Hoveddokument",
+                            "content":{
+                              "instanceValueMetadata":[
+                                {"displayName":"Hoveddokument","type":"FILE","key":"hovedDokumentFil"}
+                              ]
+                            }
+                          }
                         ]
                       }
                     }""",
@@ -208,6 +321,10 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
     }
 
     companion object {
+        private const val METADATA_PATH = "/api/intern-klient/metadata"
+        private const val UNKNOWN_METADATA_PATH =
+            "$METADATA_PATH?sourceApplicationId=999999&sourceApplicationIntegrationId=unknown"
+
         @JvmStatic
         fun endpoints(): List<String> =
             listOf(
@@ -215,6 +332,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
                 "/api/intern-klient/integrasjoner/999999999/aktiv-konfigurasjon-id",
                 "/api/intern-klient/konfigurasjoner/999999999/mapping",
                 "/api/intern-klient/value-convertings/999999999",
+                UNKNOWN_METADATA_PATH,
             )
     }
 }

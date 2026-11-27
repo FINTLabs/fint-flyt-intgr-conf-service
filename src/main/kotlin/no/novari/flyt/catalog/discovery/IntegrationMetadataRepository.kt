@@ -49,6 +49,11 @@ interface IntegrationMetadataRepository : JpaRepository<IntegrationMetadata, Lon
         sourceApplicationIntegrationId: String,
     ): List<IntegrationMetadata>
 
+    fun findFirstBySourceApplicationIdAndSourceApplicationIntegrationIdOrderByVersionDesc(
+        sourceApplicationId: Long,
+        sourceApplicationIntegrationId: String,
+    ): IntegrationMetadata?
+
     fun existsBySourceApplicationIdAndSourceApplicationIntegrationIdAndVersion(
         sourceApplicationId: Long,
         sourceApplicationIntegrationId: String,

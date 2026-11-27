@@ -61,6 +61,16 @@ class IntegrationMetadataService(
             ),
         )
 
+    fun getLatestForIntegration(
+        sourceApplicationId: Long,
+        sourceApplicationIntegrationId: String,
+    ): IntegrationMetadataDto? =
+        integrationMetadataRepository
+            .findFirstBySourceApplicationIdAndSourceApplicationIntegrationIdOrderByVersionDesc(
+                sourceApplicationId,
+                sourceApplicationIntegrationId,
+            )?.let(integrationMetadataMappingService::toDto)
+
     fun getById(id: Long): IntegrationMetadataDto? =
         integrationMetadataRepository
             .findById(id)
