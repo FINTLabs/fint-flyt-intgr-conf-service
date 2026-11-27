@@ -1,5 +1,7 @@
 package no.novari.flyt.catalog.integration.api
 
+import no.novari.flyt.audit.actor.Actor
+import no.novari.flyt.catalog.InternalClientResponses
 import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 import no.novari.flyt.catalog.integration.application.IntegrationService
 import no.novari.flyt.catalog.integration.persistence.entity.Integration
@@ -7,12 +9,15 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import org.springframework.test.json.JsonCompareMode
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import java.time.Instant
+import java.util.UUID
 
 class IntegrationInternalClientControllerTest {
     private lateinit var integrationService: IntegrationService
@@ -21,7 +26,11 @@ class IntegrationInternalClientControllerTest {
     @BeforeEach
     fun setUp() {
         integrationService = mock()
-        mockMvc = MockMvcBuilders.standaloneSetup(IntegrationInternalClientController(integrationService)).build()
+        mockMvc =
+            MockMvcBuilders
+                .standaloneSetup(IntegrationInternalClientController(integrationService))
+                .setMessageConverters(InternalClientResponses.messageConverter())
+                .build()
     }
 
     @Test
@@ -45,6 +54,43 @@ class IntegrationInternalClientControllerTest {
             .andExpect(jsonPath("$.id").value(10))
             .andExpect(jsonPath("$.sourceApplicationIntegrationId").value("abc"))
             .andExpect(jsonPath("$.activeConfigurationId").value(20))
+    }
+
+    @Test
+    fun `returns the whole integrasjon with audit fields`() {
+        val first = UUID.fromString("11111111-1111-1111-1111-111111111111")
+        val second = UUID.fromString("22222222-2222-2222-2222-222222222222")
+        whenever(
+            integrationService.findIntegrationBySourceApplicationIdAndSourceApplicationIntegrationId(
+                1L,
+                "kildeapp-integrasjon",
+            ),
+        ).thenReturn(
+            IntegrationDto(
+                id = 1L,
+                sourceApplicationId = 1L,
+                sourceApplicationIntegrationId = "kildeapp-integrasjon",
+                destination = "arkiv",
+                state = Integration.State.ACTIVE,
+                activeConfigurationId = 100L,
+                createdAt = Instant.parse("2026-01-15T09:00:00Z"),
+                createdBy = first.toString(),
+                createdByActor = Actor.User(first),
+                lastModifiedAt = Instant.parse("2026-02-20T13:30:00Z"),
+                lastModifiedBy = second.toString(),
+                lastModifiedByActor = Actor.User(second),
+            ),
+        )
+
+        mockMvc
+            .perform(get("$PATH?sourceApplicationId=1&sourceApplicationIntegrationId=kildeapp-integrasjon"))
+            .andExpect(status().isOk)
+            .andExpect(
+                content().json(
+                    InternalClientResponses.expected("integrasjoner-by-source-application.json"),
+                    JsonCompareMode.STRICT,
+                ),
+            )
     }
 
     @Test
