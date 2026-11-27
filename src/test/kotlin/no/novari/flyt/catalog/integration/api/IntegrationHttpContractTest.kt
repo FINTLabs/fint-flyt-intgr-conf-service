@@ -46,8 +46,8 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Fastholder HTTP-kontrakten for integration-domenet slik den er i dag, mot de delte fixturene i
- * `no.novari:flyt-catalog-contract-fixtures`.
+ * Fastholder HTTP-kontrakten for integration-domenet slik den er i dag, mot fixturene i
+ * `src/test/resources/catalog-contract-fixtures`.
  *
  * Valideringen kjører mot en ekte validator, bygget slik IntegrationValidatorFactory gjør det i
  * drift - med en IntegrationValidationContext som payload - bare uten Kafka-oppslaget som ellers
