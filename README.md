@@ -145,6 +145,11 @@ returnerer `200` med `state` lik `ACTIVE` eller `DEACTIVATED` for en kjent integ
 ukjent integrasjon. `GET /api/intern-klient/integrasjoner/{integrationId}/aktiv-konfigurasjon-id`
 gir også `404` når integrasjonen mangler aktiv konfigurasjon. Lesesvarene har samme JSON-form som Kafka-svarene.
 
+`GET /api/intern-klient/metadata?sourceApplicationId={id}&sourceApplicationIntegrationId={id}`
+returnerer `200 OK` med ett `IntegrationMetadataDto` for kombinasjonen i gjeldende organisasjon.
+Oppslaget velger høyeste registrerte versjonsnummer. Manglende metadata gir `404 Not Found`.
+Manglende eller ugyldige parametere gir `400 Bad Request`.
+
 `POST /api/intern-klient/metadata` tar imot et JSON-objekt i formatet `IntegrationMetadataDto`. Tjenesten
 returnerer `201 Created` etter å ha lagret en ny versjon, `400 Bad Request` ved ugyldig forespørsel og
 `409 Conflict` med en feilmelding hvis kombinasjonen av `sourceApplicationId`,
