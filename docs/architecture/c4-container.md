@@ -5,40 +5,39 @@ Katalogtjenesten består av én applikasjon og én database. Kafka er en delt pl
 ## Diagram
 
 ```mermaid
-%%{init: {"c4": {"c4ShapeMargin": 120}}}%%
 C4Container
     title Containere i katalogtjenesten
 
+    System_Ext(services, "FLYT-tjenester", "Gateways og mapping-service")
     System_Ext(frontend, "Flyt-frontend", "Brukergrensesnitt")
-    System_Ext(gateways, "Instans-gateways", "flyt-gateway-starter, flyt-web-instance-gateway, acos-gateway")
-    System_Ext(mapping, "mapping-service", "Instansmapping")
-    System_Ext(idp, "FINT IdP", "OIDC/OAuth2")
-    Container(app, "fint-flyt-intgr-conf-service", "Kotlin, Spring Boot 3.5, Java 25", "Internt HTTP-API for de fire katalogdomenene")
-    ContainerQueue_Ext(kafka, "Kafka", "Delt Kafka-klynge", "Hendelser under {tenant}.flyt.*")
+    ContainerQueue_Ext(kafka, "Kafka", "Delt klynge", "tenant.flyt.*")
+    Container(app, "fint-flyt-intgr-conf-service", "Kotlin, Spring Boot 4.2", "Internt API for fire domener")
     System_Ext(authorization, "authorization-service", "Tilgang og brukernavn")
-    ContainerDb(db, "fint-flyt", "PostgreSQL bak PgBouncer", "Fem skjemaer per tenant: ett per domene og tjenestens eget")
+    ContainerDb(db, "fint-flyt", "PostgreSQL bak PgBouncer", "Fem skjemaer per tenant")
 
-    Rel(frontend, app, "Internt API", "HTTPS/JSON, JWT")
-    Rel(gateways, app, "Metadata og integrasjonsoppslag", "HTTPS/JSON, JWT")
-    Rel(gateways, kafka, "Hendelser")
-    Rel(mapping, app, "Konfigurasjon, mapping og verdikonverteringer", "HTTPS/JSON, JWT")
-    Rel(app, kafka, "Hendelser")
+    Rel(frontend, app, "/api/intern", "HTTPS")
+    Rel(services, app, "/api/intern-klient", "HTTPS")
+    Rel(services, kafka, "Metadata")
+    Rel(kafka, app, "Metadata")
     Rel(app, db, "JPA, Flyway", "JDBC")
-    Rel(app, authorization, "Tilgang og visningsnavn", "HTTPS")
-    Rel(app, idp, "JWKS og klienttoken", "HTTPS")
+    Rel(app, authorization, "Tilgang, navn", "HTTPS")
 
-    UpdateRelStyle(frontend, app, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-60")
-    UpdateRelStyle(gateways, app, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-90")
-    UpdateRelStyle(gateways, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
-    UpdateRelStyle(mapping, app, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
-    UpdateRelStyle(app, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-40", $offsetY="-40")
+    UpdateRelStyle(frontend, app, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(services, app, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-60", $offsetY="-10")
+    UpdateRelStyle(services, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(kafka, app, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-35", $offsetY="-30")
     UpdateRelStyle(app, db, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
-    UpdateRelStyle(app, authorization, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-60")
-    UpdateRelStyle(app, idp, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-40")
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateRelStyle(app, authorization, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="20")
+    UpdateElementStyle(frontend, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(services, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(kafka, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(app, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(authorization, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(db, $bgColor="#C4B5FD", $fontColor="#1F2937", $borderColor="#8B5CF6")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
-Blå bokser er en del av katalogtjenesten, grå er eksterne.
+Blå er katalogtjenesten, lilla er databasen og turkis er eksternt. Tjenesten henter også JWKS og klienttoken fra FINT IdP.
 
 ## fint-flyt-intgr-conf-service
 
@@ -47,7 +46,7 @@ Java 25-image og rulles ut som en Flaiserator-`Application` i namespacet til hve
 
 | Egenskap  | Verdi                                                                                           |
 | --------- | ----------------------------------------------------------------------------------------------- |
-| Teknologi | Kotlin, Spring Boot 3.5, Spring Data JPA, Hibernate Envers, Flyway, springdoc                   |
+| Teknologi | Kotlin, Spring Boot 4.2, Spring Data JPA, Hibernate Envers, Flyway, springdoc                   |
 | Utrulling | Kubernetes via Flaiserator, én instans per tenant i beta og i produksjon                        |
 | Ressurser | 2048Mi minnetak, `-Xmx1536M`, 500m CPU-tak, 150m CPU-forespørsel                                |
 | Kontekst  | `server.servlet.context-path` er `/{tenant}` i produksjon og `/beta/{tenant}` i beta            |
@@ -57,8 +56,8 @@ Java 25-image og rulles ut som en Flaiserator-`Application` i namespacet til hve
 
 ### HTTP-API
 
-Alt ligger under `/api/intern` og krever JWT fra FINT IdP. Hvilke organisasjoner og roller som
-slipper inn, settes per tenant i overlayet. Swagger UI og OpenAPI-spesifikasjonen ligger utenfor
+Alt ligger under `/api/intern` og krever et brukertoken fra FINT IdP, utstedt til FLYT-frontend. Brukeren må
+høre til tenanten eller en operatør (`vigo.no`, `novari.no`), se `flyt-security-starter`. Swagger UI og OpenAPI-spesifikasjonen ligger utenfor
 ingress-rutene og nås bare med port-forward, se [README](../../README.md#openapi-dokumentasjon).
 
 | Ressurs                         | Operasjoner                                                                                          |

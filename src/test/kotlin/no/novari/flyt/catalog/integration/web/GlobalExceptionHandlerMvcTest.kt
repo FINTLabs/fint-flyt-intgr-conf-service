@@ -3,8 +3,8 @@ package no.novari.flyt.catalog.integration.web
 import no.novari.flyt.catalog.integration.api.IntegrationController
 import no.novari.flyt.catalog.integration.application.IntegrationService
 import no.novari.flyt.catalog.integration.application.IntegrationUpdateValidationService
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.springframework.http.MediaType
@@ -27,7 +27,7 @@ class GlobalExceptionHandlerMvcTest {
                 IntegrationController(
                     mock<IntegrationService>(),
                     mock<IntegrationUpdateValidationService>(),
-                    mock<UserAuthorizationService>(),
+                    mock<AuthorizationService>(),
                 ),
             ).setControllerAdvice(GlobalExceptionHandler(ValidationErrorsFormattingService()))
             .build()

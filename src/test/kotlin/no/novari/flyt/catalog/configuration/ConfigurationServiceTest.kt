@@ -6,9 +6,9 @@ import no.novari.flyt.catalog.configuration.model.configuration.dtos.Configurati
 import no.novari.flyt.catalog.configuration.model.configuration.entities.Configuration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
@@ -115,7 +115,7 @@ class ConfigurationServiceTest {
 
         whenever(configurationRepository.findById(any())).thenReturn(Optional.empty())
 
-        assertThrows(IllegalArgumentException::class.java) {
+        assertThrows<IllegalArgumentException> {
             configurationService.updateById(123L, configurationPatchDto)
         }
     }

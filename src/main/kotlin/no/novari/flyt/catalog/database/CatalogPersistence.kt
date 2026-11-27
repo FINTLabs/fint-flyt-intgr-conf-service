@@ -3,8 +3,8 @@ package no.novari.flyt.catalog.database
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.hibernate.cfg.AvailableSettings
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
-import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder
+import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties
+import org.springframework.boot.jpa.EntityManagerFactoryBuilder
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean
 import javax.sql.DataSource
 

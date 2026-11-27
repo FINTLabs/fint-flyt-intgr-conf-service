@@ -3,6 +3,7 @@ package no.novari.flyt.catalog
 import jakarta.persistence.EntityManagerFactory
 import jakarta.validation.Validator
 import no.novari.flyt.catalog.database.CatalogSchemas
+import no.novari.flyt.catalog.discovery.kafka.IntegrationMetadataEventHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.hibernate.cfg.AvailableSettings
@@ -10,8 +11,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.getBean
 import org.springframework.context.ApplicationContext
-import org.springframework.kafka.listener.ConcurrentMessageListenerContainer
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry
 import org.springframework.transaction.PlatformTransactionManager
 import javax.sql.DataSource
 
@@ -34,7 +36,7 @@ class ApplicationTest : CatalogIntegrationTest() {
         beanName: String,
         schemaProperty: String,
     ) {
-        context.getBean(beanName, DataSource::class.java).connection.use { connection ->
+        context.getBean<DataSource>(beanName).connection.use { connection ->
             assertThat(connection.isValid(1)).isTrue()
             assertThat(connection.schema).isEqualTo(schemaOf(schemaProperty))
         }
@@ -52,7 +54,7 @@ class ApplicationTest : CatalogIntegrationTest() {
         schemaProperty: String,
         expectedMigrations: Int,
     ) {
-        val flyway = context.getBean(beanName, Flyway::class.java)
+        val flyway = context.getBean<Flyway>(beanName)
 
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue()
         assertThat(flyway.info().pending()).isEmpty()
@@ -82,7 +84,7 @@ class ApplicationTest : CatalogIntegrationTest() {
         beanName: String,
         domain: String,
     ) {
-        val flyway = context.getBean(beanName, Flyway::class.java)
+        val flyway = context.getBean<Flyway>(beanName)
 
         val actual =
             flyway
@@ -104,11 +106,11 @@ class ApplicationTest : CatalogIntegrationTest() {
 
     @Test
     fun `the service's own empty schema is the primary persistence unit`() {
-        assertThat(context.getBean(DataSource::class.java))
+        assertThat(context.getBean<DataSource>())
             .isSameAs(context.getBean("ownSchemaDataSource"))
-        assertThat(context.getBean(EntityManagerFactory::class.java))
+        assertThat(context.getBean<EntityManagerFactory>())
             .isSameAs(context.getBean("ownSchemaEntityManagerFactory"))
-        assertThat(context.getBean(PlatformTransactionManager::class.java))
+        assertThat(context.getBean<PlatformTransactionManager>())
             .isSameAs(context.getBean("ownSchemaTransactionManager"))
     }
 
@@ -180,7 +182,7 @@ class ApplicationTest : CatalogIntegrationTest() {
     fun `the configuration validator factory is used only by the configuration persistence unit`() {
         val configurationValidatorFactory = context.getBean("configurationHibernateValidatorFactory")
 
-        assertThat(context.getBean(Validator::class.java))
+        assertThat(context.getBean<Validator>())
             .isSameAs(context.getBean("defaultValidator"))
         assertThat(validationFactoryOf("configurationEntityManagerFactory"))
             .isSameAs(configurationValidatorFactory)
@@ -235,14 +237,13 @@ class ApplicationTest : CatalogIntegrationTest() {
     @Test
     fun `the metadata consumer listens on the topic its clients produce to`() {
         val container =
-            context.getBean(
-                "integrationMetadataEventConsumer",
-                ConcurrentMessageListenerContainer::class.java,
-            )
+            context
+                .getBean<KafkaListenerEndpointRegistry>()
+                .getListenerContainer(IntegrationMetadataEventHandler.LISTENER_ID)
 
-        assertThat(
-            container.containerProperties.topics,
-        ).containsExactly("test-no.flyt.event.integration-metadata-received")
+        assertThat(container?.groupId).isEqualTo("fint-flyt-intgr-conf-service")
+        assertThat(container?.containerProperties?.topics)
+            .containsExactly("test-no.flyt.event.integration-metadata-received")
     }
 
     /**
@@ -263,8 +264,9 @@ class ApplicationTest : CatalogIntegrationTest() {
     fun `no consumer listens on a request topic`(topic: String) {
         val listenedTopics =
             context
-                .getBeansOfType(ConcurrentMessageListenerContainer::class.java)
-                .values
+                .getBean<KafkaListenerEndpointRegistry>()
+                .allListenerContainers
+                .also { assertThat(it).isNotEmpty() }
                 .flatMap {
                     it.containerProperties.topics
                         .orEmpty()
@@ -277,7 +279,7 @@ class ApplicationTest : CatalogIntegrationTest() {
     @Test
     fun `each envers-audited schema has its own revinfo sequence`() {
         listOf(schemas.configuration, schemas.valueConverting).forEach { schema ->
-            context.getBean("configurationDataSource", DataSource::class.java).connection.use { connection ->
+            context.getBean<DataSource>("configurationDataSource").connection.use { connection ->
                 connection
                     .prepareStatement(
                         "SELECT count(*) FROM information_schema.sequences WHERE sequence_schema = ? AND sequence_name = 'revinfo_seq'",
@@ -304,17 +306,17 @@ class ApplicationTest : CatalogIntegrationTest() {
 
     private fun validationFactoryOf(beanName: String): Any? =
         context
-            .getBean(beanName, EntityManagerFactory::class.java)
+            .getBean<EntityManagerFactory>(beanName)
             .properties[AvailableSettings.JAKARTA_VALIDATION_FACTORY]
 
     private fun validationModeOf(beanName: String): Any? =
         context
-            .getBean(beanName, EntityManagerFactory::class.java)
+            .getBean<EntityManagerFactory>(beanName)
             .properties[AvailableSettings.JAKARTA_VALIDATION_MODE]
 
     private fun entityNamesOf(beanName: String): List<String> =
         context
-            .getBean(beanName, EntityManagerFactory::class.java)
+            .getBean<EntityManagerFactory>(beanName)
             .metamodel.entities
             .map { it.name }
 

@@ -5,13 +5,13 @@ import jakarta.validation.Validator
 import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.any
@@ -37,7 +37,7 @@ class IntegrationMetadataControllerTest {
     private lateinit var authentication: Authentication
 
     @Mock
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
 
     @Mock
     private lateinit var validationErrorsFormattingService: ValidationErrorsFormattingService
@@ -50,7 +50,7 @@ class IntegrationMetadataControllerTest {
                 integrationMetadataService = integrationMetadataService,
                 validator = validator,
                 validationErrorsFormattingService = validationErrorsFormattingService,
-                userAuthorizationService = userAuthorizationService,
+                authorizationService = authorizationService,
             )
     }
 
@@ -68,7 +68,7 @@ class IntegrationMetadataControllerTest {
         whenever(integrationMetadataService.getIntegrationMetadataForSourceApplication(1L, false))
             .thenReturn(listOf(dto))
 
-        val response = controller.getIntegrationMetadataForSourceApplication(authentication, 1L, null)
+        val response = controller.getIntegrationMetadataForSourceApplication(1L, null)
 
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
@@ -81,10 +81,7 @@ class IntegrationMetadataControllerTest {
         val sourceApplicationIds = listOf(1L, 2L)
         val requestedSourceApplicationIds = setOf(1L, 2L)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                requestedSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(requestedSourceApplicationIds),
         ).thenReturn(requestedSourceApplicationIds)
         whenever(integrationMetadataService.getIntegrationMetadataForSourceApplications(sourceApplicationIds, false))
             .thenReturn(
@@ -96,15 +93,11 @@ class IntegrationMetadataControllerTest {
 
         val response =
             controller.getIntegrationMetadataForSourceApplications(
-                authentication,
                 sourceApplicationIds,
                 null,
             )
 
-        verify(userAuthorizationService).getUserAuthorizedSourceApplicationIds(
-            authentication,
-            requestedSourceApplicationIds,
-        )
+        verify(authorizationService).getUserAuthorizedSourceApplicationIds(requestedSourceApplicationIds)
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
         assertEquals(2, response.body?.size)
@@ -119,11 +112,11 @@ class IntegrationMetadataControllerTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=1",
             ),
-        ).whenever(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        ).whenever(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
 
         val exception =
-            assertThrows(ResponseStatusException::class.java) {
-                controller.getIntegrationMetadataForSourceApplication(authentication, 1L, null)
+            assertThrows<ResponseStatusException> {
+                controller.getIntegrationMetadataForSourceApplication(1L, null)
             }
 
         assertEquals(HttpStatus.FORBIDDEN, exception.statusCode)
@@ -137,22 +130,16 @@ class IntegrationMetadataControllerTest {
     fun `throws forbidden when user lacks access to one of several source applications`() {
         val requestedSourceApplicationIds = setOf(1L, 2L)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                requestedSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(requestedSourceApplicationIds),
         ).thenReturn(setOf(1L))
 
         val exception =
-            assertThrows(ResponseStatusException::class.java) {
-                controller.getIntegrationMetadataForSourceApplications(authentication, listOf(1L, 2L), null)
+            assertThrows<ResponseStatusException> {
+                controller.getIntegrationMetadataForSourceApplications(listOf(1L, 2L), null)
             }
 
         assertEquals(HttpStatus.FORBIDDEN, exception.statusCode)
-        verify(userAuthorizationService).getUserAuthorizedSourceApplicationIds(
-            authentication,
-            requestedSourceApplicationIds,
-        )
+        verify(authorizationService).getUserAuthorizedSourceApplicationIds(requestedSourceApplicationIds)
     }
 
     @Test
@@ -165,7 +152,7 @@ class IntegrationMetadataControllerTest {
             ),
         ).thenReturn(listOf(dto))
 
-        val response = controller.getIntegrationMetadataForIntegration(authentication, 1L, "integrationId")
+        val response = controller.getIntegrationMetadataForIntegration(1L, "integrationId")
 
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
@@ -179,11 +166,11 @@ class IntegrationMetadataControllerTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=1",
             ),
-        ).whenever(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        ).whenever(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
 
         val exception =
-            assertThrows(ResponseStatusException::class.java) {
-                controller.getIntegrationMetadataForIntegration(authentication, 1L, "integrationId")
+            assertThrows<ResponseStatusException> {
+                controller.getIntegrationMetadataForIntegration(1L, "integrationId")
             }
 
         assertEquals(HttpStatus.FORBIDDEN, exception.statusCode)
@@ -203,7 +190,7 @@ class IntegrationMetadataControllerTest {
             )
         whenever(integrationMetadataService.getById(1L)).thenReturn(integrationMetadataDto)
 
-        val response = controller.getInstanceElementMetadataForIntegrationMetadataWithId(authentication, 1L)
+        val response = controller.getInstanceElementMetadataForIntegrationMetadataWithId(1L)
 
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals(instanceMetadataContentDto, response.body)
@@ -213,8 +200,8 @@ class IntegrationMetadataControllerTest {
     fun `throws not found when instance metadata lookup uses an invalid id`() {
         whenever(integrationMetadataService.getById(1L)).thenReturn(null)
 
-        assertThrows(ResponseStatusException::class.java) {
-            controller.getInstanceElementMetadataForIntegrationMetadataWithId(authentication, 1L)
+        assertThrows<ResponseStatusException> {
+            controller.getInstanceElementMetadataForIntegrationMetadataWithId(1L)
         }
     }
 
@@ -226,14 +213,14 @@ class IntegrationMetadataControllerTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=1",
             ),
-        ).whenever(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        ).whenever(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         whenever(
             integrationMetadataService.getById(metadataId),
         ).thenReturn(validIntegrationMetadataDto(sourceApplicationId = 1L))
 
         val exception =
-            assertThrows(ResponseStatusException::class.java) {
-                controller.getInstanceElementMetadataForIntegrationMetadataWithId(authentication, metadataId)
+            assertThrows<ResponseStatusException> {
+                controller.getInstanceElementMetadataForIntegrationMetadataWithId(metadataId)
             }
 
         assertEquals(HttpStatus.FORBIDDEN, exception.statusCode)
@@ -253,8 +240,8 @@ class IntegrationMetadataControllerTest {
         whenever(validationErrorsFormattingService.format(any<Set<ConstraintViolation<IntegrationMetadataDto>>>()))
             .thenReturn("Validation error")
 
-        assertThrows(ResponseStatusException::class.java) {
-            controller.post(authentication, dto)
+        assertThrows<ResponseStatusException> {
+            controller.post(dto)
         }
     }
 
@@ -267,11 +254,11 @@ class IntegrationMetadataControllerTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=1",
             ),
-        ).whenever(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        ).whenever(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
 
         val exception =
-            assertThrows(ResponseStatusException::class.java) {
-                controller.post(authentication, integrationMetadataDto)
+            assertThrows<ResponseStatusException> {
+                controller.post(integrationMetadataDto)
             }
 
         assertEquals(HttpStatus.FORBIDDEN, exception.statusCode)
@@ -287,7 +274,7 @@ class IntegrationMetadataControllerTest {
         whenever(validator.validate(integrationMetadataDto)).thenReturn(emptySet())
         whenever(integrationMetadataService.versionExists(integrationMetadataDto)).thenReturn(false)
 
-        val response = controller.post(authentication, integrationMetadataDto)
+        val response = controller.post(integrationMetadataDto)
 
         assertEquals(HttpStatus.OK, response.statusCode)
         verify(integrationMetadataService).save(integrationMetadataDto)

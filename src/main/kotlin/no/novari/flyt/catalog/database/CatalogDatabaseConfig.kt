@@ -1,7 +1,7 @@
 package no.novari.flyt.catalog.database
 
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 

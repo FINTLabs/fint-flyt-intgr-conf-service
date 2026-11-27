@@ -6,16 +6,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionFilterParams
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionPageResponse
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionRequest
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionResponse
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionNotFoundException
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionService
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
+import no.novari.flyt.security.UrlPaths.INTERNAL_API
 import org.springframework.http.HttpStatus
-import org.springframework.security.core.Authentication
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -34,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "Value conversions", description = "Administrasjon av verdikonverteringer mellom applikasjoner.")
 class ValueConversionController(
     private val valueConversionService: ValueConversionService,
-    private val userAuthorizationService: UserAuthorizationService,
+    private val authorizationService: AuthorizationService,
 ) {
     @GetMapping
     @Operation(summary = "Hent verdikonverteringer")
@@ -48,18 +47,15 @@ class ValueConversionController(
             ],
     )
     fun getValueConversions(
-        authentication: Authentication,
         @Valid @ModelAttribute filterParams: ValueConversionFilterParams,
     ): ValueConversionPageResponse {
         val pageRequest = filterParams.toPageRequest()
         val filter = filterParams.toFilter()
 
         val sourceApplicationIds =
-            userAuthorizationService
-                .getUserAuthorizedSourceApplicationIds(
-                    authentication,
-                    valueConversionService.findDistinctSourceApplicationIds(),
-                )
+            authorizationService.getUserAuthorizedSourceApplicationIds(
+                valueConversionService.findDistinctSourceApplicationIds(),
+            )
 
         val valueConversions =
             valueConversionService.findAllBySourceApplicationIds(
@@ -84,7 +80,6 @@ class ValueConversionController(
             ],
     )
     fun getValueConversion(
-        authentication: Authentication,
         @Parameter(description = "ID-en til verdikonverteringen.", example = "42")
         @PathVariable
         valueConversionId: Long,
@@ -93,10 +88,7 @@ class ValueConversionController(
             valueConversionService.findById(valueConversionId)
                 ?: throw ValueConversionNotFoundException(valueConversionId)
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
-            valueConversion.fromApplicationId,
-        )
+        authorizationService.checkIfUserHasAccessToSourceApplication(valueConversion.fromApplicationId)
 
         return valueConversion
     }
@@ -113,13 +105,9 @@ class ValueConversionController(
             ],
     )
     fun postValueConversion(
-        authentication: Authentication,
         @Valid @RequestBody valueConversionRequest: ValueConversionRequest,
     ): ValueConversionResponse {
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
-            valueConversionRequest.fromApplicationId,
-        )
+        authorizationService.checkIfUserHasAccessToSourceApplication(valueConversionRequest.fromApplicationId)
 
         return valueConversionService.save(valueConversionRequest)
     }
@@ -137,7 +125,6 @@ class ValueConversionController(
             ],
     )
     fun putValueConversion(
-        authentication: Authentication,
         @Parameter(description = "ID-en til verdikonverteringen.", example = "42")
         @PathVariable
         valueConversionId: Long,
@@ -147,10 +134,7 @@ class ValueConversionController(
             valueConversionService.findById(valueConversionId)
                 ?: throw ValueConversionNotFoundException(valueConversionId)
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
-            valueConversion.fromApplicationId,
-        )
+        authorizationService.checkIfUserHasAccessToSourceApplication(valueConversion.fromApplicationId)
 
         return valueConversionService.update(valueConversionId, valueConversionRequest)
     }
@@ -168,7 +152,6 @@ class ValueConversionController(
             ],
     )
     fun deleteValueConversion(
-        authentication: Authentication,
         @Parameter(description = "ID-en til verdikonverteringen.", example = "42")
         @PathVariable
         valueConversionId: Long,
@@ -177,10 +160,7 @@ class ValueConversionController(
             valueConversionService.findById(valueConversionId)
                 ?: throw ValueConversionNotFoundException(valueConversionId)
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
-            valueConversion.fromApplicationId,
-        )
+        authorizationService.checkIfUserHasAccessToSourceApplication(valueConversion.fromApplicationId)
 
         valueConversionService.delete(valueConversionId)
     }

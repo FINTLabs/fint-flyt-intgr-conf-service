@@ -9,12 +9,12 @@ import no.novari.flyt.catalog.integration.persistence.entity.Integration
 import no.novari.flyt.catalog.integration.web.ConflictException
 import no.novari.flyt.catalog.integration.web.ForbiddenWithoutBodyException
 import no.novari.flyt.catalog.integration.web.NotFoundException
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
+import no.novari.flyt.catalog.security.AuthorizationService
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -37,7 +37,7 @@ class IntegrationControllerTest {
     private lateinit var integrationUpdateValidationService: IntegrationUpdateValidationService
 
     @Mock
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
 
     @Mock
     private lateinit var authentication: Authentication
@@ -50,7 +50,7 @@ class IntegrationControllerTest {
             IntegrationController(
                 integrationService,
                 integrationUpdateValidationService,
-                userAuthorizationService,
+                authorizationService,
             )
     }
 
@@ -78,23 +78,17 @@ class IntegrationControllerTest {
 
         whenever(integrationService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
         whenever(integrationService.findAllBySourceApplicationIds(authorizedSourceApplicationIds))
             .thenReturn(expectedIntegrations)
 
-        val response = controller.listIntegrations(authentication, null)
+        val response = controller.listIntegrations(null)
 
         assertEquals(expectedIntegrations.size, response.size)
         assertTrue(response.containsAll(expectedIntegrations))
         verify(integrationService).findDistinctSourceApplicationIds()
-        verify(userAuthorizationService).getUserAuthorizedSourceApplicationIds(
-            authentication,
-            candidateSourceApplicationIds,
-        )
+        verify(authorizationService).getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds)
         verify(integrationService).findAllBySourceApplicationIds(authorizedSourceApplicationIds)
         verify(integrationService, never()).findAll()
     }
@@ -115,17 +109,13 @@ class IntegrationControllerTest {
 
         whenever(integrationService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
         whenever(integrationService.findAllBySourceApplicationIds(eq(authorizedSourceApplicationIds), any()))
             .thenReturn(page)
 
         val response =
             controller.listIntegrationsPaginated(
-                authentication = authentication,
                 page = 0,
                 size = 10,
                 sortProperty = "id",
@@ -151,10 +141,10 @@ class IntegrationControllerTest {
 
         whenever(integrationService.findById(1L)).thenReturn(integration)
 
-        val response = controller.getIntegrationById(authentication, 1L)
+        val response = controller.getIntegrationById(1L)
 
         assertEquals(integration, response)
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
     }
 
     @Test
@@ -162,8 +152,8 @@ class IntegrationControllerTest {
         whenever(integrationService.findById(1L)).thenReturn(null)
 
         val exception =
-            assertThrows(NotFoundException::class.java) {
-                controller.getIntegrationById(authentication, 1L)
+            assertThrows<NotFoundException> {
+                controller.getIntegrationById(1L)
             }
 
         assertTrue(exception.message?.contains("404") == true)
@@ -171,11 +161,11 @@ class IntegrationControllerTest {
 
     @Test
     fun `throws forbidden without body when filtering by unauthorized source application id`() {
-        whenever(userAuthorizationService.getUserAuthorizedSourceApplicationIds(authentication, setOf(3L)))
+        whenever(authorizationService.getUserAuthorizedSourceApplicationIds(setOf(3L)))
             .thenReturn(setOf(1L, 2L))
 
-        assertThrows(ForbiddenWithoutBodyException::class.java) {
-            controller.listIntegrations(authentication, 3L)
+        assertThrows<ForbiddenWithoutBodyException> {
+            controller.listIntegrations(3L)
         }
     }
 
@@ -199,10 +189,10 @@ class IntegrationControllerTest {
         ).thenReturn(false)
         whenever(integrationService.save(postDto)).thenReturn(savedIntegration)
 
-        val response = controller.createIntegration(authentication, postDto)
+        val response = controller.createIntegration(postDto)
 
         assertEquals(savedIntegration, response)
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
     }
 
     @Test
@@ -217,8 +207,8 @@ class IntegrationControllerTest {
         ).thenReturn(true)
 
         val exception =
-            assertThrows(ConflictException::class.java) {
-                controller.createIntegration(authentication, postDto)
+            assertThrows<ConflictException> {
+                controller.createIntegration(postDto)
             }
 
         assertTrue(exception.message?.contains("409") == true)
@@ -250,7 +240,7 @@ class IntegrationControllerTest {
         whenever(integrationService.findById(1L)).thenReturn(existingIntegration)
         whenever(integrationService.updateById(1L, patchDto)).thenReturn(updatedIntegration)
 
-        val response = controller.updateIntegration(authentication, 1L, patchDto)
+        val response = controller.updateIntegration(1L, patchDto)
 
         assertEquals(updatedIntegration, response)
         verify(integrationUpdateValidationService).validate(1L, updatedIntegration)

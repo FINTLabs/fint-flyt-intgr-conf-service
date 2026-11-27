@@ -1,7 +1,7 @@
 package no.novari.flyt.catalog.configuration
 
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ObjectMappingDto
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_CLIENT_API
+import no.novari.flyt.security.UrlPaths.INTERNAL_CLIENT_API
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable

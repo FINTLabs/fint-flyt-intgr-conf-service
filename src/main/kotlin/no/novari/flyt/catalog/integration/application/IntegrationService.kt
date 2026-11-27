@@ -6,6 +6,7 @@ import no.novari.flyt.catalog.integration.api.dto.IntegrationPostDto
 import no.novari.flyt.catalog.integration.persistence.IntegrationRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
@@ -44,8 +45,7 @@ class IntegrationService(
 
     fun findById(integrationId: Long): IntegrationDto? {
         return integrationRepository
-            .findById(integrationId)
-            .orElse(null)
+            .findByIdOrNull(integrationId)
             ?.let(integrationMappingService::toDto)
     }
 
@@ -71,7 +71,7 @@ class IntegrationService(
     }
 
     fun findActiveConfigurationIdByIntegrationId(integrationId: Long): Long? {
-        return integrationRepository.findById(integrationId).orElse(null)?.activeConfigurationId
+        return integrationRepository.findByIdOrNull(integrationId)?.activeConfigurationId
     }
 
     fun save(integrationPostDto: IntegrationPostDto): IntegrationDto {

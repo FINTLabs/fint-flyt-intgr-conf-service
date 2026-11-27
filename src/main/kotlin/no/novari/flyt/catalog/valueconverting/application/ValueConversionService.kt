@@ -10,6 +10,7 @@ import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueCo
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionSpecifications
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -47,9 +48,8 @@ class ValueConversionService(
 
     fun findById(valueConversionId: Long): ValueConversionResponse? {
         return valueConversionRepository
-            .findById(valueConversionId)
-            .map { valueConversion -> toHydratedResponse(valueConversion) }
-            .orElse(null)
+            .findByIdOrNull(valueConversionId)
+            ?.let(::toHydratedResponse)
     }
 
     fun save(request: ValueConversionRequest): ValueConversionResponse {
@@ -64,8 +64,8 @@ class ValueConversionService(
     ): ValueConversionResponse {
         val valueConversion =
             valueConversionRepository
-                .findById(valueConversionId)
-                .orElseThrow { ValueConversionNotFoundException(valueConversionId) }
+                .findByIdOrNull(valueConversionId)
+                ?: throw ValueConversionNotFoundException(valueConversionId)
 
         valueConversionMapper.updateEntity(valueConversion, request)
         val saved = valueConversionRepository.save(valueConversion)
@@ -77,8 +77,8 @@ class ValueConversionService(
     fun delete(valueConversionId: Long) {
         val valueConversion =
             valueConversionRepository
-                .findById(valueConversionId)
-                .orElseThrow { ValueConversionNotFoundException(valueConversionId) }
+                .findByIdOrNull(valueConversionId)
+                ?: throw ValueConversionNotFoundException(valueConversionId)
 
         valueConversionRepository.delete(valueConversion)
     }

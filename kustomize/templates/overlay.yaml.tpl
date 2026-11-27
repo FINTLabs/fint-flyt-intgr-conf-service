@@ -29,15 +29,7 @@ patches:
         value: "$CONTEXT_PATH/api/intern/integrasjoner"
       - op: replace
         path: "/spec/ingress/routes/3/path"
-        value: "$CONTEXT_PATH/api/intern/konfigurasjoner"
-      - op: add
-        path: "/spec/env/-"
-        value:
-          name: "novari.flyt.web-resource-server.security.api.internal.authorized-org-id-role-pairs-json"
-          value: |
-            {
-$ROLE_PAIRS
-            }
+        value: "$CONTEXT_PATH/api/intern/konfigurasjoner"$ADDITIONAL_ORG_IDS_PATCH
       - op: add
         path: "/spec/env/-"
         value:

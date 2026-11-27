@@ -9,38 +9,37 @@ Tjenesten kjører én instans per tenant og miljø. Diagrammet viser én slik in
 ## Diagram
 
 ```mermaid
-%%{init: {"c4": {"c4ShapeMargin": 120}}}%%
 C4Context
     title Systemkontekst for katalogtjenesten
 
-    Person(saksbehandler, "Flyt-bruker", "Fylkeskommunal bruker som setter opp og vedlikeholder integrasjoner")
-    Person(utvikler, "Utvikler", "Novari- eller Vigo-utvikler som setter opp og feilsøker integrasjoner")
-    System_Ext(idp, "FINT IdP", "Utsteder JWT for brukere og klienter")
-    System_Ext(frontend, "Flyt-frontend", "Brukergrensesnittet for å sette opp integrasjoner")
-    System(katalog, "Katalogtjenesten", "Integrasjoner, konfigurasjoner, verdikonverteringer og integrasjonsmetadata")
-    System_Ext(authorization, "authorization-service", "Tilgang per kildeapplikasjon og brukernavn")
-    System_Ext(gateways, "Instans-gateways", "Gateways bygget på flyt-gateway-starter, flyt-web-instance-gateway og acos-gateway")
-    System_Ext(mapping, "mapping-service", "Mapper innkomne instanser etter aktiv konfigurasjon")
+    Person_Ext(users, "Flyt-brukere", "Fylkene, og utviklere i Novari og Vigo")
+    System_Ext(frontend, "Flyt-frontend", "Setter opp integrasjoner")
+    System_Ext(gateways, "Instans-gateways", "flyt-gateway-starter, acos-gateway")
+    System(katalog, "Katalogtjenesten", "Integrasjoner, konfigurasjoner, verdikonverteringer, metadata")
+    System_Ext(mapping, "mapping-service", "Mapper instanser")
+    System_Ext(authorization, "authorization-service", "Tilgang og brukernavn")
 
-    Rel(saksbehandler, frontend, "Bruker")
-    Rel(utvikler, frontend, "Bruker")
-    Rel(frontend, katalog, "Leser og endrer", "HTTPS/JSON, JWT")
-    Rel(gateways, katalog, "Publiserer metadata og slår opp integrasjoner", "Kafka, HTTPS")
-    Rel(mapping, katalog, "Henter konfigurasjon, mapping og verdikonverteringer", "HTTPS")
-    Rel(katalog, authorization, "Tilgang og brukernavn", "HTTPS")
-    Rel(katalog, idp, "Validerer JWT og henter klienttoken", "OIDC/OAuth2")
+    Rel(users, frontend, "Bruker")
+    Rel(frontend, katalog, "Leser og endrer", "HTTPS")
+    Rel(gateways, katalog, "Metadata, oppslag", "Kafka, HTTPS")
+    Rel(mapping, katalog, "Henter konfigurasjon", "HTTPS")
+    Rel(katalog, authorization, "Tilgang, navn", "HTTPS")
 
-    UpdateRelStyle(saksbehandler, frontend, $textColor="#3B82F6", $lineColor="#3B82F6")
-    UpdateRelStyle(utvikler, frontend, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="20")
-    UpdateRelStyle(frontend, katalog, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-40")
-    UpdateRelStyle(gateways, katalog, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-110")
-    UpdateRelStyle(mapping, katalog, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
-    UpdateRelStyle(katalog, authorization, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-40")
-    UpdateRelStyle(katalog, idp, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateRelStyle(users, frontend, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-35", $offsetY="-30")
+    UpdateRelStyle(frontend, katalog, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(gateways, katalog, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-55", $offsetY="-45")
+    UpdateRelStyle(mapping, katalog, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="20")
+    UpdateRelStyle(katalog, authorization, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateElementStyle(users, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(frontend, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(gateways, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(katalog, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(mapping, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(authorization, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
-Blå boks er katalogtjenesten, grå er eksterne systemer.
+Blå er katalogtjenesten, turkis er eksterne systemer. FINT IdP utsteder tokenene og er ikke tegnet med.
 
 ## Brukere
 
@@ -49,8 +48,8 @@ Blå boks er katalogtjenesten, grå er eksterne systemer.
 | Flyt-bruker | Person | Opprette og aktivere integrasjoner, bygge konfigurasjoner og vedlikeholde verdikonverteringer. |
 | Utvikler    | Person | Sette opp og feilsøke integrasjoner på vegne av fylkene.                                       |
 
-Begge ser bare kildeapplikasjonene authorization-service gir dem tilgang til. Hvilke organisasjoner
-og roller som slipper inn, settes i overlayet for hver tenant.
+Begge ser bare kildeapplikasjonene authorization-service gir dem tilgang til. Brukeren må høre til
+tenanten eller en operatør. afk, bfk og ofk slipper også inn `viken.no` og `frid-iks.no`, satt i overlayet.
 
 ## Eksterne systemer
 

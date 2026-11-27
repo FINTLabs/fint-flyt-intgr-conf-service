@@ -50,12 +50,20 @@ Spring Boots `defaultValidator`.
 
 Integration sin persistence unit har Hibernates bean-validering ved lagring slått av.
 
-### Komponentskanning
+### Sikkerhet
 
-`@SpringBootApplication` navngir pakkene den skanner. `flyt-web-resource-server` og
-`no.novari:kafka` registrerer bare deler av bønnene sine gjennom auto-konfigurasjon — resten er
-`@Service`-klasser som forutsetter at konsumenten skanner bibliotekets egen pakke. Pakkene står
-oppført eksplisitt, framfor å skanne hele `no.novari`.
+`flyt-security-starter` setter opp Spring Security med én filterkjede per kallertype:
+
+- `/api/intern/**` er for brukere i FLYT-frontend. Tokenet må ha `aud` lik
+  `novari.flyt.security.user.audience` (fra secreten `fint-flyt-auth-forward-sso`), og organisasjonen må være
+  tenanten eller en operatør. Tilgang per kildeapplikasjon sjekkes i `AuthorizationService`, som spør
+  authorization-service gjennom `FlytAccess` én gang per request. 403-meldingen er den samme som før.
+- `/api/intern-klient/**` er for andre FLYT-tjenester (se under).
+- `/actuator/health/**`, `/actuator/prometheus` og Swagger-stiene i `novari.flyt.security.public-paths` er
+  åpne. Resten gir 401.
+
+Bibliotekene registrerer bønnene sine med auto-konfigurasjon, så `@SpringBootApplication` skanner bare
+`no.novari.flyt.catalog`.
 
 ## Persistering
 
@@ -127,12 +135,12 @@ er invarianten brutt, og migreringen skal tilbakestilles.
 
 ## Internt klient-API
 
-Gatewayene og mapping-service slår opp i katalogen med endepunktene under `/api/intern-klient`. De
+Gatewayene og mapping-service slår opp i katalogen med leseendepunktene under `/api/intern-klient`. De
 erstattet request/reply-topicene under Kafka (FFS-2392), som er fjernet (FFS-2400).
 Kallene må ha et token fra `fint-flyt-authorization-oauth2-client`. Den brukes som felles klient for
 interne kall mellom FLYT-tjenester, fordi namerator ikke lager nye NAM-klienter. Tjenesten har den allerede,
-mappet til `fint.flyt.authorization.sso.*`, og `authorized-client-ids` er
-`${fint.flyt.authorization.sso.client-id}`.
+mappet til `fint.flyt.authorization.sso.*`, og det er standardverdien for
+`novari.flyt.security.internal-client.authorized-client-ids`. Tokenet må ha `aud` lik `sub`.
 
 | Endepunkt                                                                         | Erstatter topic                                                                      |
 | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -141,15 +149,40 @@ mappet til `fint.flyt.authorization.sso.*`, og `authorized-client-ids` er
 | `GET /konfigurasjoner/{configurationId}/mapping`                                  | `request.mapping.by.configuration-id`                                                |
 | `GET /value-convertings/{valueConvertingId}`                                      | `request.value-converting.by.value-converting-id`                                    |
 
-Ukjent ID gir 404, også når integrasjonen finnes, men mangler aktiv konfigurasjon. Svarene har samme
-JSON-form som Kafka-svarene.
+`GET /api/intern-klient/integrasjoner?sourceApplicationId={id}&sourceApplicationIntegrationId={id}`
+returnerer `200` med `state` lik `ACTIVE` eller `DEACTIVATED` for en kjent integrasjon og `404` for en
+ukjent integrasjon. `GET /api/intern-klient/integrasjoner/{integrationId}/aktiv-konfigurasjon-id`
+gir også `404` når integrasjonen mangler aktiv konfigurasjon. Lesesvarene har samme JSON-form som de tidligere Kafka-svarene.
+
+`GET /api/intern-klient/metadata?sourceApplicationId={id}&sourceApplicationIntegrationId={id}`
+returnerer `200 OK` med ett `IntegrationMetadataDto` for kombinasjonen i gjeldende organisasjon.
+Oppslaget velger høyeste registrerte versjonsnummer. Manglende metadata gir `404 Not Found`.
+Manglende eller ugyldige parametere gir `400 Bad Request`.
+
+`GET /api/intern-klient/metadata?sourceApplicationId={id}&sourceApplicationIntegrationId={id}`
+returnerer `200 OK` med ett `IntegrationMetadataDto` for kombinasjonen i gjeldende organisasjon.
+Oppslaget velger høyeste registrerte versjonsnummer. Manglende metadata gir `404 Not Found`.
+Manglende eller ugyldige parametere gir `400 Bad Request`.
+
+`POST /api/intern-klient/metadata` tar imot et JSON-objekt i formatet `IntegrationMetadataDto`. Tjenesten
+returnerer `201 Created` etter å ha lagret en ny versjon, `400 Bad Request` ved ugyldig forespørsel og
+`409 Conflict` med en feilmelding hvis kombinasjonen av `sourceApplicationId`,
+`sourceApplicationIntegrationId` og `version` allerede finnes. Ved samtidige kall for samme nye versjon
+lagres den én gang. En annen versjon av samme integrasjon kan registreres. Svar med `400` eller `409` har
+medietypen `application/problem+json`, med feilmeldingen i feltet `detail`.
+
+Klient-API-et gir `401 Unauthorized` ved manglende eller ugyldig token og `403 Forbidden` når tokenet
+tilhører en klient uten intern tilgang.
 
 ## Kafka
 
-Topic-konfigurasjon opprettes og endres når konsument-bønnene bygges, altså ved oppstart.
+Kafka settes opp med `fint-kafka-starter` og `flyt-kafka`. Topicen er en `NewTopic`-bønne, som
+`KafkaAdmin` oppretter eller endrer ved oppstart (1 partisjon, 7 dagers retention). Oppstarten feiler hvis
+det ikke går.
 
-Consumer group er `${fint.application-id}`, med `auto.offset.reset=earliest` som er bibliotekets
-default. Meldinger kan derfor bli behandlet på nytt.
+`IntegrationMetadataEventHandler` er en `@KafkaListener` med consumer group `${fint.application-id}`
+(`idIsGroup = false`), med `auto.offset.reset=earliest` som er bibliotekets default. Meldinger kan derfor
+bli behandlet på nytt. En melding som feiler, logges og hoppes over uten nye forsøk (`kafkaErrorHandler`).
 
 Topic-navnet bygges av org-id og domenekontekst, ikke av applikasjons-ID:
 
@@ -220,18 +253,19 @@ Regenerer overlays etter endringer i malen:
 Applikasjonsnavnet gir databasebrukeren, og dermed skjemaet, navnet sitt: flaiserator oppretter
 én `PGUser` per applikasjon, og skjemaet følger mønsteret `{tenant}_{applikasjonsnavn}_db` i databasen `fint-flyt`.
 
-Overlayene setter ingress-rute, `server.servlet.context-path`, probe- og metrics-stier, Kafka-acl og
-autoriserte org-id-er per tenant. Alt utledes av namespace og miljø, med to unntak som står i
-`render-overlay.sh`: de tre tidligere Viken-fylkene slipper også inn brukere fra `viken.no` og
-`frid-iks.no`, og oauth2-secreten i `ra-no` bruker andre nøkkelnavn enn de øvrige namespacene.
+Overlayene setter ingress-rute, `server.servlet.context-path`, probe- og metrics-stier og Kafka-acl per
+tenant. Alt utledes av namespace og miljø, med to unntak som står i `render-overlay.sh`: de tre tidligere
+Viken-fylkene slipper også inn brukere fra `viken.no` og `frid-iks.no`
+(`novari.flyt.security.tenant.additional-org-ids`), og oauth2-secreten i `ra-no` bruker andre nøkkelnavn
+enn de øvrige namespacene.
 
 ## Låsing av avhengigheter
 
-Bygget bruker [Gradle dependency locking](https://docs.gradle.org/current/userguide/dependency_locking.html), slik at hvert bygg løser opp nøyaktig de samme direkte og transitive versjonene. De låste versjonene ligger i de committede `gradle.lockfile`-filene. En PR viser derfor alle transitive versjonsendringer den fører med seg. Gradle-plugins låses ikke, fordi Dependabot bare oppdaterer `gradle.lockfile`; versjonene deres er i stedet låst i `plugins`-blokka.
+Bygget bruker [Gradle dependency locking](https://docs.gradle.org/current/userguide/dependency_locking.html), slik at hvert bygg løser opp nøyaktig de samme direkte og transitive versjonene. De låste versjonene ligger i de committede `gradle.lockfile`-filene. En PR viser derfor alle transitive versjonsendringer den fører med seg. Gradle-plugins låses ikke, fordi Dependabot bare oppdaterer `gradle.lockfile`; versjonene deres er i stedet låst i `gradle/libs.versions.toml`.
 
 **Automatisk (Dependabot):** Dependabot oppdaterer lockfilene i sine egne PR-er, så det trengs ingen manuelle steg. Hvis to Dependabot-PR-er kommer i konflikt i en lockfile, rebaser Dependabot den gjenværende etter at den første er merget. Skjer ikke det, kommenter `@dependabot recreate` på PR-en.
 
-**Manuelt:** Alle endringer du gjør for hånd som påvirker oppløsningen av avhengigheter, krever at lockfilene regenereres. Det gjelder versjoner, `extra[...]`-properties, constraints og nye eller fjernede avhengigheter:
+**Manuelt:** Alle endringer du gjør for hånd som påvirker oppløsningen av avhengigheter, krever at lockfilene regenereres. Det gjelder versjoner i `gradle/libs.versions.toml`, constraints og nye eller fjernede avhengigheter:
 
 ```bash
 ./gradlew dependencies --write-locks

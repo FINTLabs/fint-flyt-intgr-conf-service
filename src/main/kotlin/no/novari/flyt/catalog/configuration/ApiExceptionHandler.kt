@@ -46,7 +46,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         request: HttpServletRequest,
     ): ResponseEntity<ApiErrorResponse> =
         errorResponse(
-            HttpStatus.UNPROCESSABLE_ENTITY,
+            HttpStatus.UNPROCESSABLE_CONTENT,
             exception.message ?: "Could not validate configuration",
             request.requestURI,
         )

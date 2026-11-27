@@ -15,11 +15,10 @@ import no.novari.flyt.catalog.integration.application.IntegrationUpdateValidatio
 import no.novari.flyt.catalog.integration.web.ConflictException
 import no.novari.flyt.catalog.integration.web.ForbiddenWithoutBodyException
 import no.novari.flyt.catalog.integration.web.NotFoundException
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
+import no.novari.flyt.catalog.security.AuthorizationService
+import no.novari.flyt.security.UrlPaths.INTERNAL_API
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -35,23 +34,21 @@ import org.springframework.web.bind.annotation.RestController
 class IntegrationController(
     private val integrationService: IntegrationService,
     private val integrationUpdateValidationService: IntegrationUpdateValidationService,
-    private val userAuthorizationService: UserAuthorizationService,
+    private val authorizationService: AuthorizationService,
 ) {
     @GetMapping
     @Operation(summary = "List integrations", operationId = "listIntegrations")
     fun listIntegrations(
-        authentication: Authentication,
         @Parameter(description = "Filter by source application identifier")
         @RequestParam(required = false) sourceApplicationId: Long?,
     ): Collection<IntegrationDto> {
-        val sourceApplicationIds = resolveAuthorizedSourceApplicationIds(authentication, sourceApplicationId)
+        val sourceApplicationIds = resolveAuthorizedSourceApplicationIds(sourceApplicationId)
         return integrationService.findAllBySourceApplicationIds(sourceApplicationIds)
     }
 
     @GetMapping(params = ["side", "antall", "sorteringFelt", "sorteringRetning"])
     @Operation(summary = "List integrations with pagination", operationId = "listIntegrationsPaginated")
     fun listIntegrationsPaginated(
-        authentication: Authentication,
         @Parameter(description = "Zero-based page number")
         @RequestParam(name = "side") page: Int,
         @Parameter(description = "Number of integrations per page")
@@ -63,7 +60,7 @@ class IntegrationController(
         @Parameter(description = "Filter by source application identifier")
         @RequestParam(required = false) sourceApplicationId: Long?,
     ): IntegrationPageResponse {
-        val sourceApplicationIds = resolveAuthorizedSourceApplicationIds(authentication, sourceApplicationId)
+        val sourceApplicationIds = resolveAuthorizedSourceApplicationIds(sourceApplicationId)
         val pageRequest = PageRequest.of(page, size).withSort(sortDirection, sortProperty)
         val integrations = integrationService.findAllBySourceApplicationIds(sourceApplicationIds, pageRequest)
         return IntegrationPageResponse(
@@ -83,7 +80,6 @@ class IntegrationController(
         ],
     )
     fun getIntegrationById(
-        authentication: Authentication,
         @Parameter(description = "Integration identifier")
         @PathVariable integrationId: Long,
     ): IntegrationDto {
@@ -91,10 +87,7 @@ class IntegrationController(
             integrationService.findById(integrationId)
                 ?: throw NotFoundException()
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
-            integration.sourceApplicationId,
-        )
+        authorizationService.checkIfUserHasAccessToSourceApplication(integration.sourceApplicationId)
 
         return integration
     }
@@ -110,13 +103,11 @@ class IntegrationController(
         ],
     )
     fun createIntegration(
-        authentication: Authentication,
         @Valid @RequestBody integrationPostDto: IntegrationPostDto,
     ): IntegrationDto {
         ensureIntegrationDoesNotAlreadyExist(integrationPostDto)
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
+        authorizationService.checkIfUserHasAccessToSourceApplication(
             requireNotNull(integrationPostDto.sourceApplicationId),
         )
 
@@ -134,7 +125,6 @@ class IntegrationController(
         ],
     )
     fun updateIntegration(
-        authentication: Authentication,
         @Parameter(description = "Integration identifier")
         @PathVariable integrationId: Long,
         @RequestBody integrationPatchDto: IntegrationPatchDto,
@@ -143,10 +133,7 @@ class IntegrationController(
             integrationService.findById(integrationId)
                 ?: throw NotFoundException()
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
-            existingIntegration.sourceApplicationId,
-        )
+        authorizationService.checkIfUserHasAccessToSourceApplication(existingIntegration.sourceApplicationId)
 
         val updatedIntegration =
             existingIntegration.copy(
@@ -161,17 +148,11 @@ class IntegrationController(
         return integrationService.updateById(integrationId, integrationPatchDto)
     }
 
-    private fun resolveAuthorizedSourceApplicationIds(
-        authentication: Authentication,
-        sourceApplicationId: Long?,
-    ): Set<Long> {
+    private fun resolveAuthorizedSourceApplicationIds(sourceApplicationId: Long?): Set<Long> {
         val candidateSourceApplicationIds =
             sourceApplicationId?.let(::setOf) ?: integrationService.findDistinctSourceApplicationIds()
         val authorizedSourceApplicationIds =
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            )
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds)
 
         if (sourceApplicationId != null && !authorizedSourceApplicationIds.contains(sourceApplicationId)) {
             throw ForbiddenWithoutBodyException()

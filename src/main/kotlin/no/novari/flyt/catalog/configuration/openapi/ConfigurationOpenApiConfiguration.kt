@@ -1,6 +1,6 @@
 package no.novari.flyt.catalog.configuration.openapi
 
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
+import no.novari.flyt.security.UrlPaths.INTERNAL_API
 import org.springdoc.core.models.GroupedOpenApi
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

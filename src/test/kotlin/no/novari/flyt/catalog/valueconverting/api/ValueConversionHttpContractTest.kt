@@ -8,6 +8,7 @@ import no.novari.flyt.catalog.contract.fixtures.CatalogContractFixtures
 import no.novari.flyt.catalog.contract.fixtures.FixtureObjectMapper
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixture
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixtureRunner
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionRequest
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionResponse
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionSnapshot
@@ -16,7 +17,6 @@ import no.novari.flyt.catalog.valueconverting.application.ValueConversionService
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversion
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversionHistoryService
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionRepository
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -33,7 +33,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver
 import org.springframework.http.HttpStatus
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -54,7 +54,7 @@ import java.util.UUID
 class ValueConversionHttpContractTest {
     private lateinit var valueConversionService: ValueConversionService
     private lateinit var valueConversionRepository: ValueConversionRepository
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
     private lateinit var valueConversionHistoryService: ValueConversionHistoryService
     private lateinit var authentication: Authentication
     private lateinit var mockMvc: MockMvc
@@ -63,22 +63,22 @@ class ValueConversionHttpContractTest {
     fun setUp() {
         valueConversionService = mock()
         valueConversionRepository = mock()
-        userAuthorizationService = mock()
+        authorizationService = mock()
         valueConversionHistoryService = mock()
         authentication = mock()
 
         mockMvc =
             MockMvcBuilders
                 .standaloneSetup(
-                    ValueConversionController(valueConversionService, userAuthorizationService),
+                    ValueConversionController(valueConversionService, authorizationService),
                     ValueConversionHistoryController(
                         valueConversionRepository,
-                        userAuthorizationService,
+                        authorizationService,
                         valueConversionHistoryService,
                     ),
                 ).setControllerAdvice(ValueConversionExceptionHandler())
                 .setCustomArgumentResolvers(PageableHandlerMethodArgumentResolver())
-                .setMessageConverters(MappingJackson2HttpMessageConverter(OBJECT_MAPPER))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(OBJECT_MAPPER.rebuild()))
                 .setValidator(LocalValidatorFactoryBean().apply { afterPropertiesSet() })
                 .build()
     }
@@ -366,7 +366,7 @@ class ValueConversionHttpContractTest {
     private fun stubAuthorizedSourceApplicationIds() {
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(setOf(1L))
         whenever(valueConversionRepository.findDistinctSourceApplicationIds()).thenReturn(setOf(1L))
-        whenever(userAuthorizationService.getUserAuthorizedSourceApplicationIds(any(), any())).thenReturn(setOf(1L))
+        whenever(authorizationService.getUserAuthorizedSourceApplicationIds(any())).thenReturn(setOf(1L))
     }
 
     private fun stubExistingValueConversion(
@@ -382,8 +382,8 @@ class ValueConversionHttpContractTest {
                 "You do not have permission to access or modify data that is related to source application " +
                     "with id=$sourceApplicationId",
             ),
-        ).whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(any(), eq(sourceApplicationId))
+        ).whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(eq(sourceApplicationId))
     }
 
     private fun duplicateTrimmedKeys() =

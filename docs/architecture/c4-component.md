@@ -6,58 +6,55 @@ Komponentene i `fint-flyt-intgr-conf-service`. Hvert domene er en egen pakke und
 ## Diagram
 
 ```mermaid
-%%{init: {"c4": {"c4ShapeMargin": 120}}}%%
 C4Component
     title Komponenter i fint-flyt-intgr-conf-service
 
-    System_Ext(frontend, "Flyt-frontend", "Internt API")
-    System_Ext(gateways, "Instans-gateways", "Publiserer metadata, slår opp integrasjoner")
-    ContainerQueue_Ext(kafka, "Kafka", "Delt Kafka-klynge", "{tenant}.flyt.*")
-    System_Ext(mapping, "mapping-service", "Henter konfigurasjon, mapping og verdikonverteringer")
-    Component(valueconverting, "Value-converting", "catalog.valueconverting", "Verdikonverteringer og historikk")
-    Component(integration, "Integration", "catalog.integration", "Integrasjoner og aktivering av konfigurasjon")
-    Component(configuration, "Configuration", "catalog.configuration", "Konfigurasjoner, mappingtrær og historikk")
+    Component(valueconverting, "Value-converting", "catalog.valueconverting", "Verdikonverteringer, historikk")
+    ContainerQueue_Ext(kafka, "Kafka", "Delt klynge", "tenant.flyt.*")
+    System_Ext(clients, "Klienter", "Frontend, gateways, mapping-service")
     Component(discovery, "Discovery", "catalog.discovery", "Integrasjons- og instansmetadata")
+    Component(integration, "Integration", "catalog.integration", "Integrasjoner, aktivering")
+    Component(configuration, "Configuration", "catalog.configuration", "Konfigurasjoner, mapping, historikk")
+    Component(security, "Sikkerhet", "flyt-security-starter", "JWT, tilgang per kildeapplikasjon")
+    Component(persistence, "Persistens", "catalog.database", "Én persistence unit per skjema")
+    System_Ext(authorization, "authorization-service", "Tilgang og brukernavn")
     ContainerDb(db, "fint-flyt", "PostgreSQL", "Ett skjema per domene")
-    Component(persistence, "Persistens", "catalog.database", "DataSource, EntityManagerFactory og Flyway per skjema")
-    Component(security, "Sikkerhet", "flyt-web-resource-server", "JWT-validering og tilgang per kildeapplikasjon")
-    System_Ext(authorization, "authorization-service", "Tilgang og visningsnavn")
 
-    Rel(frontend, valueconverting, "HTTPS")
-    Rel(frontend, integration, "HTTPS")
-    Rel(frontend, configuration, "HTTPS")
-    Rel(gateways, discovery, "POST /metadata", "HTTPS")
-    Rel(gateways, integration, "Slår opp integrasjon", "HTTPS")
-    Rel(gateways, kafka, "Hendelser")
-    Rel(mapping, integration, "Aktiv konfigurasjon", "HTTPS")
-    Rel(mapping, configuration, "Mapping", "HTTPS")
-    Rel(mapping, valueconverting, "Verdikonverteringer", "HTTPS")
-    Rel(kafka, discovery, "Metadatahendelser")
-    Rel(integration, configuration, "Henter konfigurasjon")
-    Rel(configuration, integration, "Henter integrasjon")
-    Rel(configuration, discovery, "Henter metadata")
-    Rel(persistence, db, "JDBC")
+    Rel(clients, valueconverting, "HTTPS")
+    Rel(clients, kafka, "Metadata")
+    Rel(clients, discovery, "HTTPS")
+    Rel(clients, integration, "HTTPS")
+    Rel(clients, configuration, "HTTPS")
+    Rel(kafka, discovery, "Metadata")
+    BiRel(integration, configuration, "Oppslag")
+    Rel(configuration, discovery, "Metadata")
     Rel(security, authorization, "HTTPS")
+    Rel(persistence, db, "JDBC")
 
-    UpdateRelStyle(frontend, valueconverting, $textColor="#3B82F6", $lineColor="#3B82F6")
-    UpdateRelStyle(frontend, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-40")
-    UpdateRelStyle(frontend, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="40", $offsetY="20")
-    UpdateRelStyle(gateways, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="80", $offsetY="20")
-    UpdateRelStyle(gateways, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-60")
-    UpdateRelStyle(gateways, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-20")
-    UpdateRelStyle(mapping, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-20")
-    UpdateRelStyle(mapping, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-40", $offsetY="-20")
-    UpdateRelStyle(mapping, valueconverting, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-80", $offsetY="-30")
-    UpdateRelStyle(kafka, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="30")
-    UpdateRelStyle(integration, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-30")
-    UpdateRelStyle(configuration, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="20")
-    UpdateRelStyle(configuration, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-30")
-    UpdateRelStyle(persistence, db, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-20")
-    UpdateRelStyle(security, authorization, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetY="-20")
-    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+    UpdateRelStyle(clients, valueconverting, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(clients, kafka, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="20")
+    UpdateRelStyle(clients, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-35", $offsetY="-30")
+    UpdateRelStyle(clients, integration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(clients, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="20")
+    UpdateRelStyle(kafka, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(integration, configuration, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="-35", $offsetY="-30")
+    UpdateRelStyle(configuration, discovery, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(security, authorization, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateRelStyle(persistence, db, $textColor="#3B82F6", $lineColor="#3B82F6", $offsetX="10")
+    UpdateElementStyle(valueconverting, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(kafka, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(clients, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(discovery, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(integration, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(configuration, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(security, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(persistence, $bgColor="#93C5FD", $fontColor="#1F2937", $borderColor="#3B82F6")
+    UpdateElementStyle(authorization, $bgColor="#A5F3FC", $fontColor="#1F2937", $borderColor="#06B6D4")
+    UpdateElementStyle(db, $bgColor="#C4B5FD", $fontColor="#1F2937", $borderColor="#8B5CF6")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
-Blå bokser er komponenter i applikasjonen, grå er eksterne. Diagrammet viser komponentene med
+Blå er komponenter i applikasjonen, turkis er eksternt og lilla er databasen. Diagrammet viser komponentene med
 kontakt utenfor applikasjonen. Alle fire domenene går gjennom Persistens og Sikkerhet, og Validering
 og Audit brukes av flere domener. De er beskrevet under [Tverrgående](#tverrgående).
 
@@ -169,8 +166,8 @@ instansmetadata som beskriver feltene, kategoriene og objektsamlingene i en inst
 | ----------------------------------------------------- | ------------------------------------------------- |
 | `IntegrationMetadataController`                       | `/api/intern/metadata`                            |
 | `IntegrationMetadataService`                          | Oppslag og lagring av metadataversjoner           |
-| `kafka.IntegrationMetadataEventConsumerConfiguration` | Konsumerer `event.integration-metadata-received`  |
-| `kafka.IntegrationMetadataEventHandler`               | Lagrer en ny versjon hvis den ikke finnes fra før |
+| `kafka.IntegrationMetadataEventConsumerConfiguration` | Topic og feilhåndtering for metadatahendelsene    |
+| `kafka.IntegrationMetadataEventHandler`               | `@KafkaListener`, lagrer en ny versjon én gang    |
 | `mapping.*`                                           | Mapping mellom entiteter og DTO-er                |
 | `IntegrationMetadataRequestExceptionHandler`          | Feilsvar for `IntegrationMetadataController`      |
 
@@ -221,12 +218,12 @@ domenets transaksjonsmanager.
 | ---------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Validering | [`catalog.validation`](../../src/main/kotlin/no/novari/flyt/catalog/validation) | `ValidationErrorsFormattingService` og `HibernateConstraintValidator`          |
 | OpenAPI    | [`catalog.openapi`](../../src/main/kotlin/no/novari/flyt/catalog/openapi)       | Felles OpenAPI-oppsett. Hvert domene har sin egen gruppe i `<domene>.openapi`. |
-| Sikkerhet  | `flyt-web-resource-server`                                                      | JWT-validering, roller per organisasjon og `UserAuthorizationService`          |
+| Sikkerhet  | `flyt-security-starter`, `catalog.security`                                     | Filterkjeder, roller per organisasjon og `AuthorizationService` (`FlytAccess`) |
 | Audit      | `flyt-audit-starter`                                                            | Auditkolonner, Envers-historikk og visningsnavn for aktører                    |
-| Kafka      | `flyt-kafka`                                                                    | Topic-navn og feilhåndtering for metadatakonsumenten                           |
+| Kafka      | `fint-kafka-starter`, `flyt-kafka`                                              | Topic-navn, `NewTopic` og feilhåndtering for metadatakonsumenten               |
 
-`@SpringBootApplication` skanner `no.novari.flyt.catalog`, `no.novari.flyt.webresourceserver` og
-`no.novari.kafka`, fordi bibliotekene registrerer deler av bønnene sine som `@Service`-klasser.
+Bibliotekene registrerer bønnene sine med auto-konfigurasjon, så `@SpringBootApplication` skanner bare
+`no.novari.flyt.catalog`.
 
 ## Videre lesning
 

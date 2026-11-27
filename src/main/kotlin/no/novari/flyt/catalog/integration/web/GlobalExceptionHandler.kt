@@ -53,7 +53,7 @@ class GlobalExceptionHandler(
             cause = ex
         }
 
-        return problem(ex, HttpStatus.UNPROCESSABLE_ENTITY, validationErrorMessage, headers, request)
+        return problem(ex, HttpStatus.UNPROCESSABLE_CONTENT, validationErrorMessage, headers, request)
     }
 
     override fun handleHttpMessageNotReadable(

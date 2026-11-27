@@ -1,15 +1,14 @@
 package no.novari.flyt.catalog.valueconverting.api
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import no.novari.flyt.audit.history.EntityHistoryEntryDto
 import no.novari.flyt.audit.history.HistoryEntryDto
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionResponse
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionSnapshot
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionService
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversion
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversionHistoryService
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionRepository
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -25,7 +24,7 @@ import org.springframework.data.domain.PageImpl
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -34,6 +33,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.server.ResponseStatusException
+import tools.jackson.databind.json.JsonMapper
 import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
@@ -45,7 +45,7 @@ class ValueConversionHistoryRoutingWebMvcTest {
     private lateinit var valueConversionRepository: ValueConversionRepository
 
     @Mock
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
 
     @Mock
     private lateinit var valueConversionHistoryService: ValueConversionHistoryService
@@ -57,11 +57,11 @@ class ValueConversionHistoryRoutingWebMvcTest {
 
     @BeforeEach
     fun setUp() {
-        val valueConversionController = ValueConversionController(valueConversionService, userAuthorizationService)
+        val valueConversionController = ValueConversionController(valueConversionService, authorizationService)
         val historyController =
             ValueConversionHistoryController(
                 valueConversionRepository,
-                userAuthorizationService,
+                authorizationService,
                 valueConversionHistoryService,
             )
         mockMvc =
@@ -69,13 +69,13 @@ class ValueConversionHistoryRoutingWebMvcTest {
                 .standaloneSetup(valueConversionController, historyController)
                 .setControllerAdvice(ValueConversionExceptionHandler())
                 .setCustomArgumentResolvers(PageableHandlerMethodArgumentResolver())
-                .setMessageConverters(MappingJackson2HttpMessageConverter(jacksonObjectMapper()))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(JsonMapper.builder().findAndAddModules()))
                 .build()
     }
 
     @Test
     fun `GET history routes to allHistory and not to getValueConversion`() {
-        whenever(userAuthorizationService.getUserAuthorizedSourceApplicationIds(any(), any())).thenReturn(setOf(1L))
+        whenever(authorizationService.getUserAuthorizedSourceApplicationIds(any())).thenReturn(setOf(1L))
         whenever(valueConversionHistoryService.findAllHistory(any(), any(), any()))
             .thenReturn(PageImpl(emptyList<EntityHistoryEntryDto<ValueConversionSnapshot, Long>>()))
 
@@ -131,8 +131,8 @@ class ValueConversionHistoryRoutingWebMvcTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=3",
             ),
-        ).whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 3L)
+        ).whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(3L)
 
         mockMvc
             .perform(get("/api/intern/value-convertings/5/history").principal(authentication))

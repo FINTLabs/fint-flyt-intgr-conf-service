@@ -14,11 +14,21 @@ spring:
       - flyt-logging
       - flyt-postgres
       - flyt-kafka
-      - flyt-web-resource-server
       - flyt-authorization-client
   output:
     ansi:
       enabled: always
+
+novari:
+  flyt:
+    security:
+      # Open as before; the ingress only routes /api/intern/*, so these are reached with port-forward only.
+      public-paths:
+        - /swagger-ui.html
+        - /swagger-ui/**
+        - /v3/api-docs
+        - /v3/api-docs/**
+        - /v3/api-docs.yaml
 
 springdoc:
   api-docs:

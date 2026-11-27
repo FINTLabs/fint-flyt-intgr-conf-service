@@ -12,8 +12,8 @@ import no.novari.flyt.catalog.discovery.model.dtos.InstanceObjectCollectionMetad
 import no.novari.flyt.catalog.discovery.model.dtos.InstanceValueMetadataDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -24,7 +24,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -41,14 +41,14 @@ import java.util.UUID
  */
 class IntegrationMetadataHttpContractTest {
     private lateinit var integrationMetadataService: IntegrationMetadataService
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
     private lateinit var authentication: Authentication
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
     fun setUp() {
         integrationMetadataService = mock()
-        userAuthorizationService = mock()
+        authorizationService = mock()
         authentication = mock()
 
         mockMvc =
@@ -58,10 +58,10 @@ class IntegrationMetadataHttpContractTest {
                         integrationMetadataService,
                         Validation.buildDefaultValidatorFactory().validator,
                         ValidationErrorsFormattingService(),
-                        userAuthorizationService,
+                        authorizationService,
                     ),
                 ).setControllerAdvice(IntegrationMetadataRequestExceptionHandler())
-                .setMessageConverters(MappingJackson2HttpMessageConverter(OBJECT_MAPPER))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(OBJECT_MAPPER.rebuild()))
                 .build()
     }
 
@@ -141,7 +141,7 @@ class IntegrationMetadataHttpContractTest {
             }
 
             "discovery/metadata-by-source-applications/ok" -> {
-                whenever(userAuthorizationService.getUserAuthorizedSourceApplicationIds(any(), any()))
+                whenever(authorizationService.getUserAuthorizedSourceApplicationIds(any()))
                     .thenReturn(setOf(1L))
                 whenever(
                     integrationMetadataService.getIntegrationMetadataForSourceApplications(
