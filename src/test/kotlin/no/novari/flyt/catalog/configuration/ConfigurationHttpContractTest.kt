@@ -3,6 +3,7 @@ package no.novari.flyt.catalog.configuration
 import jakarta.validation.Validation
 import jakarta.validation.Validator
 import no.novari.flyt.audit.actor.Actor
+import no.novari.flyt.audit.history.AuditPropertyFilter
 import no.novari.flyt.audit.history.EntityHistoryEntryDto
 import no.novari.flyt.audit.history.HistoryEntryDto
 import no.novari.flyt.audit.history.HistoryEventType
@@ -10,6 +11,7 @@ import no.novari.flyt.catalog.configuration.model.configuration.dtos.Configurati
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationSnapshot
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ObjectMappingDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ValueMappingDto
+import no.novari.flyt.catalog.configuration.model.configuration.entities.Configuration
 import no.novari.flyt.catalog.configuration.model.configuration.entities.ValueMapping
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidationContext
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
@@ -18,7 +20,11 @@ import no.novari.flyt.catalog.contract.fixtures.CatalogContractFixtures
 import no.novari.flyt.catalog.contract.fixtures.FixtureObjectMapper
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixture
 import no.novari.flyt.catalog.contract.fixtures.HttpContractFixtureRunner
+import no.novari.flyt.catalog.integration.persistence.IntegrationRepository
+import no.novari.flyt.catalog.integration.persistence.entity.Integration
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
+import no.novari.flyt.security.FlytAccess
 import org.assertj.core.api.Assertions.assertThat
 import org.hibernate.validator.HibernateValidator
 import org.hibernate.validator.HibernateValidatorFactory
@@ -26,10 +32,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
@@ -40,21 +48,24 @@ import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.time.Instant
+import java.util.Optional
 import java.util.UUID
 
 /**
  * Fastholder HTTP-kontrakten for configuration-domenet slik den er i dag, mot fixturene i
  * `src/test/resources/catalog-contract-fixtures`.
  *
- * Flere av fixturene fastholder atferd vi anser som uønsket - særlig at kontrolleren ikke filtrerer
- * på brukerens autoriserte kildeapplikasjoner. Det er bevisst: bevaring av dagens atferd gjennom
- * sammenslåingen er et uttrykt krav, og en retting hører hjemme i en egen sak.
+ * Tilgangen er ekte: `ConfigurationAccess` og `AuthorizationService` kjører som i drift, og bare `FlytAccess` og
+ * repositoryene er stubbet. Brukeren har kildeapplikasjon 1 (integrasjon 10), ikke 2 (integrasjon 20) (FFS-2431).
  */
 class ConfigurationHttpContractTest {
     private lateinit var configurationService: ConfigurationService
     private lateinit var configurationValidatorFactory: ConfigurationValidatorFactory
     private lateinit var configurationHistoryService: ConfigurationHistoryService
     private lateinit var authentication: Authentication
+    private lateinit var flytAccess: FlytAccess
+    private lateinit var integrationRepository: IntegrationRepository
+    private lateinit var configurationRepository: ConfigurationRepository
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
@@ -63,6 +74,11 @@ class ConfigurationHttpContractTest {
         configurationValidatorFactory = mock()
         configurationHistoryService = mock()
         authentication = mock()
+        flytAccess = mock()
+        integrationRepository = mock()
+        configurationRepository = mock()
+        stubAccess()
+        val configurationAccess = ConfigurationAccess(integrationRepository, AuthorizationService(flytAccess))
 
         mockMvc =
             MockMvcBuilders
@@ -71,8 +87,13 @@ class ConfigurationHttpContractTest {
                         configurationService,
                         configurationValidatorFactory,
                         ValidationErrorsFormattingService(),
+                        configurationAccess,
                     ),
-                    ConfigurationHistoryController(configurationHistoryService),
+                    ConfigurationHistoryController(
+                        configurationRepository,
+                        configurationAccess,
+                        configurationHistoryService,
+                    ),
                 ).setControllerAdvice(ApiExceptionHandler())
                 .setCustomArgumentResolvers(PageableHandlerMethodArgumentResolver())
                 .setMessageConverters(JacksonJsonHttpMessageConverter(OBJECT_MAPPER.rebuild()))
@@ -91,7 +112,50 @@ class ConfigurationHttpContractTest {
         ).verify(fixture)
 
         verifyDeserializedRequestFor(fixture)
+        verifyNothingChangedFor(fixture)
     }
+
+    /** A 403 for missing access must come before anything is saved or deleted. */
+    private fun verifyNothingChangedFor(fixture: HttpContractFixture) {
+        if (fixture.id in
+            setOf(
+                "configuration/post/forbidden",
+                "configuration/patch/forbidden-no-access",
+                "configuration/delete/forbidden-no-access",
+            )
+        ) {
+            verify(configurationService, never()).save(any())
+            verify(configurationService, never()).updateById(any(), any())
+            verify(configurationService, never()).deleteById(any())
+        }
+    }
+
+    private fun stubAccess() {
+        whenever(flytAccess.sourceApplicationIds()).thenReturn(setOf(1L))
+        whenever(flytAccess.hasSourceApplication(any())).thenAnswer { it.getArgument<Long>(0) == 1L }
+        whenever(
+            integrationRepository.findById(10L),
+        ).thenReturn(Optional.of(integration(10L, sourceApplicationId = 1L)))
+        whenever(
+            integrationRepository.findById(20L),
+        ).thenReturn(Optional.of(integration(20L, sourceApplicationId = 2L)))
+        whenever(integrationRepository.findDistinctSourceApplicationIds()).thenReturn(setOf(1L, 2L))
+        whenever(integrationRepository.findIdsBySourceApplicationIdIn(setOf(1L))).thenReturn(setOf(10L))
+        whenever(
+            configurationRepository.findById(2L),
+        ).thenReturn(Optional.of(Configuration(id = 2L, integrationId = 20L)))
+    }
+
+    private fun integration(
+        id: Long,
+        sourceApplicationId: Long,
+    ) = Integration(
+        id = id,
+        sourceApplicationId = sourceApplicationId,
+        sourceApplicationIntegrationId = "integrasjon-$id",
+        destination = "arkiv",
+        state = Integration.State.DEACTIVATED,
+    )
 
     /**
      * Responsen kommer fra stubben, ikke fra det som ble lest inn, så den dekker ikke
@@ -139,29 +203,31 @@ class ConfigurationHttpContractTest {
                 )
             }
 
-            "configuration/list/ok-no-authorization-filtering" -> {
-                stubList(
+            "configuration/list/ok-authorized-only" -> {
+                // Only a filter limited to the user's integration gets the row, so the filter is part of the check.
+                val row =
                     configuration(
                         id = 1L,
                         comment = "Tilhører kildeapplikasjon brukeren har tilgang til",
                         mapping = null,
-                    ),
-                    configuration(
-                        id = 2L,
-                        integrationId = 20L,
-                        integrationMetadataId = 200L,
-                        comment = "Tilhører kildeapplikasjon brukeren IKKE har tilgang til",
-                        mapping = null,
-                    ),
-                )
+                    )
+                whenever(configurationService.findAll(argThat { integrationIds == setOf(10L) }, any(), any()))
+                    .thenReturn(PageImpl(listOf(row), PageRequest.of(0, 20), 1))
             }
+
+            "configuration/list/forbidden-integration",
+            "configuration/post/forbidden",
+            -> {}
 
             "configuration/get-by-id/ok" -> {
                 whenever(configurationService.findById(1L, false)).thenReturn(configuration())
             }
 
-            "configuration/get-by-id/ok-no-authorization-check" -> {
-                whenever(configurationService.findById(2L, true)).thenReturn(
+            "configuration/get-by-id/forbidden",
+            "configuration/patch/forbidden-no-access",
+            "configuration/delete/forbidden-no-access",
+            -> {
+                whenever(configurationService.findById(eq(2L), any())).thenReturn(
                     configuration(
                         id = 2L,
                         integrationId = 20L,
@@ -208,11 +274,15 @@ class ConfigurationHttpContractTest {
                 whenever(configurationService.findById(1L, true)).thenReturn(configuration())
             }
 
-            "configuration/all-history/ok-across-tenants" -> {
-                // isNull() er ikke tilfeldig: det er additionalFilter som ikke er overstyrt, og som
-                // derfor sender null videre. Overstyres den senere, slutter stubben å treffe og
-                // testen feiler - som er riktig signal om at avviket er borte.
-                whenever(configurationHistoryService.findAllHistory(any(), any(), isNull())).thenReturn(
+            "configuration/all-history/ok-authorized-only" -> {
+                // Only the filter on the user's integration gets the history, so the filter is part of the check.
+                whenever(
+                    configurationHistoryService.findAllHistory(
+                        any(),
+                        any(),
+                        eq(AuditPropertyFilter(property = "integrationId", allowedValues = setOf(10L))),
+                    ),
+                ).thenReturn(
                     PageImpl(
                         listOf(
                             EntityHistoryEntryDto(
@@ -228,50 +298,14 @@ class ConfigurationHttpContractTest {
                                         comment = "Tilhører kildeapplikasjon brukeren har tilgang til",
                                     ),
                             ),
-                            EntityHistoryEntryDto(
-                                entityId = 2L,
-                                timestamp = CREATED_AT,
-                                type = HistoryEventType.CREATED,
-                                actor = Actor.System,
-                                actorDisplay = "System",
-                                snapshot =
-                                    snapshot(
-                                        id = 2L,
-                                        integrationId = 20L,
-                                        integrationMetadataId = 200L,
-                                        comment = "Tilhører kildeapplikasjon brukeren IKKE har tilgang til",
-                                    ),
-                            ),
-                        ),
-                        PageRequest.of(0, 20),
-                        2,
-                    ),
-                )
-            }
-
-            "configuration/history-by-id/ok-without-access-check" -> {
-                whenever(configurationHistoryService.findHistory(eq(2L), any(), any())).thenReturn(
-                    PageImpl(
-                        listOf(
-                            HistoryEntryDto(
-                                timestamp = CREATED_AT,
-                                type = HistoryEventType.CREATED,
-                                actor = Actor.User(FIRST_ACTOR_OID),
-                                actorDisplay = "Kari Nordmann",
-                                snapshot =
-                                    snapshot(
-                                        id = 2L,
-                                        integrationId = 20L,
-                                        integrationMetadataId = 200L,
-                                        comment = "Tilhører kildeapplikasjon brukeren IKKE har tilgang til",
-                                    ),
-                            ),
                         ),
                         PageRequest.of(0, 20),
                         1,
                     ),
                 )
             }
+
+            "configuration/history-by-id/forbidden" -> {}
 
             else -> {
                 error(

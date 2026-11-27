@@ -2,8 +2,11 @@ package no.novari.flyt.catalog.configuration
 
 import no.novari.flyt.catalog.configuration.model.configuration.entities.Configuration
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 
-interface ConfigurationRepository : JpaRepository<Configuration, Long> {
+interface ConfigurationRepository :
+    JpaRepository<Configuration, Long>,
+    JpaSpecificationExecutor<Configuration> {
     fun saveWithVersion(configuration: Configuration): Configuration {
         if (configuration.completed) {
             val nextVersion = getNextVersionForIntegrationId(requireNotNull(configuration.integrationId))

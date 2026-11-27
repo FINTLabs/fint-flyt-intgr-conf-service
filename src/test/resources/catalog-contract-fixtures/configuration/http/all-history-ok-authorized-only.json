@@ -1,0 +1,48 @@
+{
+  "id": "configuration/all-history/ok-authorized-only",
+  "domain": "configuration",
+  "surface": "GET /api/intern/konfigurasjoner/history",
+  "description": "/history gir bare endringshistorikk for konfigurasjoner i integrasjoner brukeren har tilgang til (FFS-2431). Den auditerte konfigurasjonen har ikke kildeapplikasjon, så additionalFilter filtrerer på integrationId. Kjøres med en bruker som har integrasjon 10, ikke 20.",
+  "request": {
+    "method": "GET",
+    "path": "/api/intern/konfigurasjoner/history",
+    "queryParameters": {
+      "page": [
+        "0"
+      ],
+      "size": [
+        "20"
+      ]
+    }
+  },
+  "expectedResponse": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+      "content": [
+        {
+          "entityId": 1,
+          "timestamp": "2026-02-20T13:30:00Z",
+          "type": "UPDATED",
+          "actor": {
+            "type": "USER",
+            "oid": "22222222-2222-2222-2222-222222222222"
+          },
+          "actorDisplay": "Ola Nordmann",
+          "snapshot": {
+            "id": 1,
+            "integrationId": 10,
+            "integrationMetadataId": 100,
+            "version": 2,
+            "completed": false,
+            "comment": "Tilhører kildeapplikasjon brukeren har tilgang til"
+          }
+        }
+      ],
+      "page": 0,
+      "size": 20,
+      "totalElements": 1,
+      "totalPages": 1
+    }
+  }
+}

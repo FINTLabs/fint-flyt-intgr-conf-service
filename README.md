@@ -58,6 +58,8 @@ Integration sin persistence unit har Hibernates bean-validering ved lagring slå
   `novari.flyt.security.user.audience` (fra secreten `fint-flyt-auth-forward-sso`), og organisasjonen må være
   tenanten eller en operatør. Tilgang per kildeapplikasjon sjekkes i `AuthorizationService`, som spør
   authorization-service gjennom `FlytAccess` én gang per request. 403-meldingen er den samme som før.
+  En konfigurasjon har ikke kildeapplikasjon selv, så `ConfigurationAccess` sjekker kildeapplikasjonen til
+  integrasjonen den tilhører, både for oppslag, endring, sletting, lister og historikk (FFS-2431).
 - `/api/intern-klient/**` er for andre FLYT-tjenester (se under).
 - `/actuator/health/**`, `/actuator/prometheus` og Swagger-stiene i `novari.flyt.security.public-paths` er
   åpne. Resten gir 401.

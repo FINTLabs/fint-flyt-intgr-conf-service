@@ -1,0 +1,41 @@
+{
+  "id": "configuration/list/forbidden-integration",
+  "domain": "configuration",
+  "surface": "GET /api/intern/konfigurasjoner",
+  "description": "integrasjonId for en integrasjon i en kildeapplikasjon brukeren ikke har tilgang til gir 403, ikke en tom side (FFS-2431).",
+  "request": {
+    "method": "GET",
+    "path": "/api/intern/konfigurasjoner",
+    "queryParameters": {
+      "side": [
+        "0"
+      ],
+      "antall": [
+        "20"
+      ],
+      "sorteringFelt": [
+        "id"
+      ],
+      "sorteringRetning": [
+        "ASC"
+      ],
+      "integrasjonId": [
+        "20"
+      ]
+    }
+  },
+  "expectedResponse": {
+    "status": 403,
+    "contentType": "application/json",
+    "ignoredPaths": [
+      "$.timestamp"
+    ],
+    "body": {
+      "status": 403,
+      "error": "Forbidden",
+      "message": "You do not have permission to access or modify data that is related to source application with id=2",
+      "path": "/api/intern/konfigurasjoner",
+      "timestamp": "2026-01-15T09:00:00Z"
+    }
+  }
+}

@@ -1,6 +1,9 @@
 package no.novari.flyt.catalog
 
 import com.sun.net.httpserver.HttpServer
+import no.novari.flyt.catalog.configuration.ConfigurationRepository
+import no.novari.flyt.catalog.configuration.model.configuration.entities.Configuration
+import no.novari.flyt.catalog.configuration.model.configuration.entities.ObjectMapping
 import no.novari.flyt.catalog.integration.api.dto.IntegrationDto
 import no.novari.flyt.catalog.integration.persistence.IntegrationRepository
 import no.novari.flyt.catalog.integration.persistence.entity.Integration
@@ -24,6 +27,7 @@ import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
+import tools.jackson.databind.JsonNode
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Instant
@@ -52,6 +56,11 @@ class InternalApiSecurityIntegrationTest : CatalogIntegrationTest() {
     @Autowired
     private lateinit var integrationRepository: IntegrationRepository
 
+    @Autowired
+    private lateinit var configurationRepository: ConfigurationRepository
+
+    private val savedConfigurations = mutableListOf<Configuration>()
+
     @MockitoBean
     lateinit var jwtDecoder: JwtDecoder
 
@@ -66,6 +75,8 @@ class InternalApiSecurityIntegrationTest : CatalogIntegrationTest() {
 
     @AfterEach
     fun tearDown() {
+        configurationRepository.deleteAll(savedConfigurations.filter { configurationRepository.existsById(it.id!!) })
+        savedConfigurations.clear()
         integrationRepository.deleteAll(saved)
         saved.clear()
     }
@@ -120,6 +131,56 @@ class InternalApiSecurityIntegrationTest : CatalogIntegrationTest() {
         givenUserToken(organizationId = "other.no")
 
         assertThat(get("/api/intern/integrasjoner")).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `lists only configurations in the user's integrations (FFS-2431)`() {
+        val (own, other) = configurations()
+        givenUserToken()
+        AuthorizationServiceStub.sourceApplicationIds = "[$ACCESSIBLE_SOURCE_APPLICATION_ID]"
+
+        val listed =
+            client()
+                .get()
+                .uri("/api/intern/konfigurasjoner?side=0&antall=1000&sorteringFelt=id&sorteringRetning=ASC")
+                .headers { it.setBearerAuth("token") }
+                .retrieve()
+                .body<JsonNode>()
+        val listedIds = requireNotNull(listed)["content"].values().map { it["id"].asLong() }
+        assertThat(listedIds).contains(own.id).doesNotContain(other.id)
+    }
+
+    @Test
+    fun `gives 403 for a configuration in another source application and deletes nothing (FFS-2431)`() {
+        val (_, other) = configurations()
+        givenUserToken()
+        AuthorizationServiceStub.sourceApplicationIds = "[$ACCESSIBLE_SOURCE_APPLICATION_ID]"
+
+        assertThat(get("/api/intern/konfigurasjoner/${other.id}")).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(get("/api/intern/konfigurasjoner/${other.id}/history?page=0&size=20"))
+            .isEqualTo(HttpStatus.FORBIDDEN)
+        val deleted =
+            client()
+                .delete()
+                .uri("/api/intern/konfigurasjoner/${other.id}")
+                .headers { it.setBearerAuth("token") }
+                .exchange { _, response -> response.statusCode }
+        assertThat(deleted).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(configurationRepository.existsById(other.id!!)).isTrue()
+    }
+
+    /** One configuration in the accessible source application's integration, one in the other's. */
+    private fun configurations(): Pair<Configuration, Configuration> {
+        val own =
+            configurationRepository.save(
+                Configuration(integrationId = saved.first().id, integrationMetadataId = 1L, mapping = ObjectMapping()),
+            )
+        val other =
+            configurationRepository.save(
+                Configuration(integrationId = saved.last().id, integrationMetadataId = 1L, mapping = ObjectMapping()),
+            )
+        savedConfigurations += listOf(own, other)
+        return own to other
     }
 
     @Test

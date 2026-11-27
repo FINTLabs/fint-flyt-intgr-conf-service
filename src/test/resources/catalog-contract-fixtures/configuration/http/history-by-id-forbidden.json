@@ -1,0 +1,32 @@
+{
+  "id": "configuration/history-by-id/forbidden",
+  "domain": "configuration",
+  "surface": "GET /api/intern/konfigurasjoner/{id}/history",
+  "description": "checkAccess slår opp konfigurasjonen og integrasjonen før historikken hentes, og gir 403 for en kildeapplikasjon brukeren ikke har tilgang til (FFS-2431).",
+  "request": {
+    "method": "GET",
+    "path": "/api/intern/konfigurasjoner/2/history",
+    "queryParameters": {
+      "page": [
+        "0"
+      ],
+      "size": [
+        "20"
+      ]
+    }
+  },
+  "expectedResponse": {
+    "status": 403,
+    "contentType": "application/json",
+    "ignoredPaths": [
+      "$.timestamp"
+    ],
+    "body": {
+      "status": 403,
+      "error": "Forbidden",
+      "message": "You do not have permission to access or modify data that is related to source application with id=2",
+      "path": "/api/intern/konfigurasjoner/2/history",
+      "timestamp": "2026-01-15T09:00:00Z"
+    }
+  }
+}

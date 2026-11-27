@@ -4,6 +4,7 @@ import no.novari.flyt.audit.history.EntityHistoryEntryDto
 import no.novari.flyt.audit.history.HistoryEntryDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationSnapshot
+import no.novari.flyt.catalog.configuration.model.configuration.entities.Configuration
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
 import org.junit.jupiter.api.BeforeEach
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import tools.jackson.databind.json.JsonMapper
+import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
 class ConfigurationHistoryRoutingWebMvcTest {
@@ -42,6 +44,12 @@ class ConfigurationHistoryRoutingWebMvcTest {
     private lateinit var configurationHistoryService: ConfigurationHistoryService
 
     @Mock
+    private lateinit var configurationRepository: ConfigurationRepository
+
+    @Mock
+    private lateinit var configurationAccess: ConfigurationAccess
+
+    @Mock
     private lateinit var authentication: Authentication
 
     private lateinit var mockMvc: MockMvc
@@ -53,8 +61,10 @@ class ConfigurationHistoryRoutingWebMvcTest {
                 configurationService,
                 configurationValidatorFactory,
                 validationErrorsFormattingService,
+                configurationAccess,
             )
-        val historyController = ConfigurationHistoryController(configurationHistoryService)
+        val historyController =
+            ConfigurationHistoryController(configurationRepository, configurationAccess, configurationHistoryService)
 
         mockMvc =
             MockMvcBuilders
@@ -79,6 +89,7 @@ class ConfigurationHistoryRoutingWebMvcTest {
 
     @Test
     fun `GET id history routes to history for numeric id`() {
+        whenever(configurationRepository.findById(5L)).thenReturn(Optional.of(Configuration(integrationId = 1L)))
         whenever(configurationHistoryService.findHistory(eq(5L), any(), any()))
             .thenReturn(PageImpl(emptyList<HistoryEntryDto<ConfigurationSnapshot>>()))
 
