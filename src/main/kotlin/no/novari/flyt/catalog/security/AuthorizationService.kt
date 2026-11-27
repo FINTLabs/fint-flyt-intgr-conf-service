@@ -23,6 +23,11 @@ class AuthorizationService(
         }
     }
 
+    // Nothing to filter needs no call to authorization-service, so an empty list does not fail when it is down.
     fun getUserAuthorizedSourceApplicationIds(sourceApplicationIds: Set<Long>): Set<Long> =
-        (sourceApplicationIds intersect flytAccess.sourceApplicationIds()).toSortedSet()
+        if (sourceApplicationIds.isEmpty()) {
+            emptySet()
+        } else {
+            (sourceApplicationIds intersect flytAccess.sourceApplicationIds()).toSortedSet()
+        }
 }
