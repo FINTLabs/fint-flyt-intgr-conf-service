@@ -38,6 +38,7 @@ class ConfigurationControllerTest {
                 configurationService,
                 configurationValidatorFactory,
                 validationErrorsFormattingService,
+                mock(),
             )
     }
 

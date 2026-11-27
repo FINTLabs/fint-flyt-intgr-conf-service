@@ -37,9 +37,16 @@ class ConfigurationController(
     private val configurationService: ConfigurationService,
     private val configurationValidatorFactory: ConfigurationValidatorFactory,
     private val validationErrorsFormattingService: ValidationErrorsFormattingService,
+    private val configurationAccess: ConfigurationAccess,
 ) {
     @GetMapping
     @Operation(summary = "List configurations")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "Configurations of integrations the user has access to"),
+            ApiResponse(responseCode = "403", description = "Source application access denied for integrasjonId"),
+        ],
+    )
     fun getConfigurations(
         @Parameter(description = "Zero-based page number")
         @RequestParam(name = "side") page: Int,
@@ -56,7 +63,17 @@ class ConfigurationController(
         @Parameter(description = "Exclude mapping content from responses")
         @RequestParam(name = "ekskluderMapping", required = false, defaultValue = "false") excludeMapping: Boolean,
     ): ConfigurationPageResponse {
-        val filter = ConfigurationFilter(integrationId = integrationId, completed = complete)
+        // With an integration, the user must have access to it. Without one, only accessible integrations are listed.
+        val filter =
+            if (integrationId != null) {
+                configurationAccess.checkAccessToIntegration(integrationId)
+                ConfigurationFilter(integrationId = integrationId, completed = complete)
+            } else {
+                ConfigurationFilter(
+                    completed = complete,
+                    integrationIds = configurationAccess.authorizedIntegrationIds(),
+                )
+            }
         val pageRequest = PageRequest.of(page, size).withSort(sortDirection, sortProperty)
 
         val configurations = configurationService.findAll(filter, excludeMapping, pageRequest)
@@ -73,6 +90,7 @@ class ConfigurationController(
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "Configuration found"),
+            ApiResponse(responseCode = "403", description = "Source application access denied"),
             ApiResponse(responseCode = "404", description = "Configuration not found"),
         ],
     )
@@ -82,8 +100,11 @@ class ConfigurationController(
         @Parameter(description = "Exclude mapping content from the response")
         @RequestParam(name = "ekskluderMapping", required = false, defaultValue = "false") excludeMapping: Boolean,
     ): ConfigurationDto {
-        return configurationService.findById(configurationId, excludeMapping)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        val configuration =
+            configurationService.findById(configurationId, excludeMapping)
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        configurationAccess.checkAccessToIntegration(requireNotNull(configuration.integrationId))
+        return configuration
     }
 
     @PostMapping
@@ -91,12 +112,14 @@ class ConfigurationController(
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "Configuration created"),
+            ApiResponse(responseCode = "403", description = "Source application access denied"),
             ApiResponse(responseCode = "422", description = "Invalid configuration"),
         ],
     )
     fun postConfiguration(
         @RequestBody configurationDto: ConfigurationDto,
     ): ConfigurationDto {
+        configurationAccess.checkAccessToIntegration(requireNotNull(configurationDto.integrationId))
         validateBeanConstraints(
             requireNotNull(configurationDto.integrationId),
             requireNotNull(configurationDto.integrationMetadataId),
@@ -110,7 +133,10 @@ class ConfigurationController(
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "Configuration updated"),
-            ApiResponse(responseCode = "403", description = "Completed configuration cannot be changed"),
+            ApiResponse(
+                responseCode = "403",
+                description = "Source application access denied, or the configuration is completed",
+            ),
             ApiResponse(responseCode = "404", description = "Configuration not found"),
             ApiResponse(responseCode = "422", description = "Invalid configuration"),
         ],
@@ -124,6 +150,8 @@ class ConfigurationController(
             configurationService.findById(configurationId, false)
                 ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+        // Access before the completed check, so a 403 for a completed configuration says nothing to others.
+        configurationAccess.checkAccessToIntegration(requireNotNull(configurationDto.integrationId))
         validateIsNotCompleted(configurationDto)
 
         val configurationDtoBuilder =
@@ -151,7 +179,10 @@ class ConfigurationController(
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "Configuration deleted"),
-            ApiResponse(responseCode = "403", description = "Completed configuration cannot be deleted"),
+            ApiResponse(
+                responseCode = "403",
+                description = "Source application access denied, or the configuration is completed",
+            ),
             ApiResponse(responseCode = "404", description = "Configuration not found"),
         ],
     )
@@ -163,6 +194,7 @@ class ConfigurationController(
             configurationService.findById(configurationId, true)
                 ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+        configurationAccess.checkAccessToIntegration(requireNotNull(configurationDto.integrationId))
         validateIsNotCompleted(configurationDto)
         configurationService.deleteById(configurationId)
     }

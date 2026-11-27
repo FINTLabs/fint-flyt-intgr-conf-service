@@ -16,6 +16,15 @@ interface IntegrationRepository : JpaRepository<Integration, Long> {
     )
     fun findDistinctSourceApplicationIds(): Set<Long>
 
+    @Query(
+        """
+        SELECT integration.id
+        FROM Integration integration
+        WHERE integration.sourceApplicationId IN :sourceApplicationIds
+        """,
+    )
+    fun findIdsBySourceApplicationIdIn(sourceApplicationIds: Set<Long>): Set<Long>
+
     fun existsIntegrationBySourceApplicationIdAndSourceApplicationIntegrationId(
         sourceApplicationId: Long,
         sourceApplicationIntegrationId: String,

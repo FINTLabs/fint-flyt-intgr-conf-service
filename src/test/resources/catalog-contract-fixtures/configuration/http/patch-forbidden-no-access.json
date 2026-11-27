@@ -1,0 +1,27 @@
+{
+  "id": "configuration/patch/forbidden-no-access",
+  "domain": "configuration",
+  "surface": "PATCH /api/intern/konfigurasjoner/{id}",
+  "description": "Endring av en konfigurasjon i en kildeapplikasjon brukeren ikke har tilgang til gir 403, og sjekkes før om den er ferdigstilt (FFS-2431).",
+  "request": {
+    "method": "PATCH",
+    "path": "/api/intern/konfigurasjoner/2",
+    "body": {
+      "comment": "Nytt forsøk"
+    }
+  },
+  "expectedResponse": {
+    "status": 403,
+    "contentType": "application/json",
+    "ignoredPaths": [
+      "$.timestamp"
+    ],
+    "body": {
+      "status": 403,
+      "error": "Forbidden",
+      "message": "You do not have permission to access or modify data that is related to source application with id=2",
+      "path": "/api/intern/konfigurasjoner/2",
+      "timestamp": "2026-01-15T09:00:00Z"
+    }
+  }
+}

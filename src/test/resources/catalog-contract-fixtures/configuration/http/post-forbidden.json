@@ -1,0 +1,41 @@
+{
+  "id": "configuration/post/forbidden",
+  "domain": "configuration",
+  "surface": "POST /api/intern/konfigurasjoner",
+  "description": "En ny konfigurasjon for en integrasjon i en kildeapplikasjon brukeren ikke har tilgang til gir 403 før validering, og ingenting lagres (FFS-2431). En ukjent integrasjon gir fortsatt 422, se post/unprocessable-integration-not-found.",
+  "request": {
+    "method": "POST",
+    "path": "/api/intern/konfigurasjoner",
+    "body": {
+      "integrationId": 20,
+      "integrationMetadataId": 100,
+      "completed": false,
+      "comment": "Kommentar",
+      "mapping": {
+        "valueMappingPerKey": {
+          "tittel": {
+            "type": "STRING",
+            "mappingString": "Sakstittel"
+          }
+        },
+        "valueCollectionMappingPerKey": {},
+        "objectMappingPerKey": {},
+        "objectCollectionMappingPerKey": {}
+      }
+    }
+  },
+  "expectedResponse": {
+    "status": 403,
+    "contentType": "application/json",
+    "ignoredPaths": [
+      "$.timestamp"
+    ],
+    "body": {
+      "status": 403,
+      "error": "Forbidden",
+      "message": "You do not have permission to access or modify data that is related to source application with id=2",
+      "path": "/api/intern/konfigurasjoner",
+      "timestamp": "2026-01-15T09:00:00Z"
+    }
+  }
+}

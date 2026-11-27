@@ -1,0 +1,29 @@
+{
+  "id": "configuration/get-by-id/forbidden",
+  "domain": "configuration",
+  "surface": "GET /api/intern/konfigurasjoner/{id}",
+  "description": "Konfigurasjonen finnes, men tilhører en integrasjon i en kildeapplikasjon brukeren ikke har tilgang til (FFS-2431). 403 med kildeapplikasjons-id-en til integrasjonen i meldingen, som for value-converting.",
+  "request": {
+    "method": "GET",
+    "path": "/api/intern/konfigurasjoner/2",
+    "queryParameters": {
+      "ekskluderMapping": [
+        "true"
+      ]
+    }
+  },
+  "expectedResponse": {
+    "status": 403,
+    "contentType": "application/json",
+    "ignoredPaths": [
+      "$.timestamp"
+    ],
+    "body": {
+      "status": 403,
+      "error": "Forbidden",
+      "message": "You do not have permission to access or modify data that is related to source application with id=2",
+      "path": "/api/intern/konfigurasjoner/2",
+      "timestamp": "2026-01-15T09:00:00Z"
+    }
+  }
+}

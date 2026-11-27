@@ -8,6 +8,8 @@ import org.springframework.data.domain.Example
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.convert.QueryByExamplePredicateBuilder
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
@@ -36,7 +38,25 @@ class ConfigurationService(
                 filter.completed?.let { completed = it }
             }
 
-        val configurations = configurationRepository.findAll(Example.of(configurationExample), pageable)
+        val example = Example.of(configurationExample)
+        val integrationIds = filter.integrationIds
+        val configurations =
+            when {
+                integrationIds == null -> {
+                    configurationRepository.findAll(example, pageable)
+                }
+
+                integrationIds.isEmpty() -> {
+                    return PageImpl(emptyList(), pageable, 0)
+                }
+
+                else -> {
+                    configurationRepository.findAll(
+                        matching(example).and(integrationIdIn(integrationIds)),
+                        pageable,
+                    )
+                }
+            }
         val dtos = configurationMappingService.toDtos(configurations.content, excludeMapping)
 
         return PageImpl(dtos, pageable, configurations.totalElements)
@@ -69,4 +89,13 @@ class ConfigurationService(
     }
 
     fun deleteById(configurationId: Long) = configurationRepository.deleteById(configurationId)
+
+    // The same predicates as findAll(example), with the user's integrations added.
+    private fun matching(example: Example<Configuration>) =
+        Specification<Configuration> { root, _, builder ->
+            QueryByExamplePredicateBuilder.getPredicate(root, builder, example)
+        }
+
+    private fun integrationIdIn(integrationIds: Set<Long>) =
+        Specification<Configuration> { root, _, _ -> root.get<Long>("integrationId").`in`(integrationIds) }
 }
