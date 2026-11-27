@@ -1,12 +1,12 @@
 package no.novari.flyt.catalog.valueconverting.api
 
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionFilterParams
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionRequest
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionResponse
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionNotFoundException
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionFilter
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionService
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -36,7 +36,7 @@ class ValueConversionControllerTest {
     private lateinit var valueConversionService: ValueConversionService
 
     @Mock
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
 
     @Mock
     private lateinit var authentication: Authentication
@@ -59,7 +59,7 @@ class ValueConversionControllerTest {
     private fun getController(): ValueConversionController {
         return ValueConversionController(
             valueConversionService,
-            userAuthorizationService,
+            authorizationService,
         )
     }
 
@@ -104,10 +104,7 @@ class ValueConversionControllerTest {
         val mockSourceApplicationIds = setOf(1L, 2L)
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(mockSourceApplicationIds)
 
         val mockContent = listOf(mock<ValueConversionResponse>())
@@ -124,7 +121,6 @@ class ValueConversionControllerTest {
         val response =
             getController()
                 .getValueConversions(
-                    authentication = authentication,
                     filterParams =
                         validFilterParams().apply {
                             excludeConvertingMap = true
@@ -132,10 +128,7 @@ class ValueConversionControllerTest {
                 )
 
         verify(valueConversionService).findDistinctSourceApplicationIds()
-        verify(userAuthorizationService).getUserAuthorizedSourceApplicationIds(
-            authentication,
-            candidateSourceApplicationIds,
-        )
+        verify(authorizationService).getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds)
         verify(valueConversionService).findAllBySourceApplicationIds(
             pageable = pageRequest,
             includeConversionMap = false,
@@ -183,10 +176,7 @@ class ValueConversionControllerTest {
 
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
 
         val mockContent = listOf(mock<ValueConversionResponse>())
@@ -203,7 +193,6 @@ class ValueConversionControllerTest {
         val response =
             getController()
                 .getValueConversions(
-                    authentication = authentication,
                     filterParams =
                         validFilterParams().apply {
                             page = 1
@@ -240,7 +229,7 @@ class ValueConversionControllerTest {
         val dto = validResponse(id = 1L)
         whenever(valueConversionService.findById(1L)).thenReturn(dto)
 
-        val response = getController().getValueConversion(authentication, 1L)
+        val response = getController().getValueConversion(1L)
 
         verify(valueConversionService).findById(1L)
 
@@ -251,18 +240,18 @@ class ValueConversionControllerTest {
     @DisplayName("throws forbidden if user does not have access to value conversion")
     fun `getting value conversion by id should throw forbidden when user has no access`() {
         doThrow(ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden"))
-            .whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 1L)
+            .whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(1L)
 
         whenever(valueConversionService.findById(1L))
             .thenReturn(validResponse(fromApplicationId = 1L))
 
-        assertThatThrownBy { getController().getValueConversion(authentication, 1L) }
+        assertThatThrownBy { getController().getValueConversion(1L) }
             .isInstanceOf(ResponseStatusException::class.java)
             .hasFieldOrPropertyWithValue("statusCode", HttpStatus.FORBIDDEN)
             .hasMessageContaining("Forbidden")
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).findById(1L)
     }
 
@@ -271,7 +260,7 @@ class ValueConversionControllerTest {
     fun `getting value conversion by id should throw not found when conversion is missing`() {
         whenever(valueConversionService.findById(1L)).thenReturn(null)
 
-        assertThatThrownBy { getController().getValueConversion(authentication, 1L) }
+        assertThatThrownBy { getController().getValueConversion(1L) }
             .isInstanceOf(ValueConversionNotFoundException::class.java)
 
         verify(valueConversionService).findById(1L)
@@ -282,10 +271,10 @@ class ValueConversionControllerTest {
     fun `deleting value conversion should delete conversion when found and user has access`() {
         whenever(valueConversionService.findById(1L)).thenReturn(validResponse(id = 1L, fromApplicationId = 2L))
 
-        getController().deleteValueConversion(authentication, 1L)
+        getController().deleteValueConversion(1L)
 
         verify(valueConversionService).findById(1L)
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 2L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(2L)
         verify(valueConversionService).delete(1L)
     }
 
@@ -294,11 +283,11 @@ class ValueConversionControllerTest {
     fun `deleting value conversion should throw not found when conversion is missing`() {
         whenever(valueConversionService.findById(1L)).thenReturn(null)
 
-        assertThatThrownBy { getController().deleteValueConversion(authentication, 1L) }
+        assertThatThrownBy { getController().deleteValueConversion(1L) }
             .isInstanceOf(ValueConversionNotFoundException::class.java)
 
         verify(valueConversionService).findById(1L)
-        verify(userAuthorizationService, never()).checkIfUserHasAccessToSourceApplication(any(), any())
+        verify(authorizationService, never()).checkIfUserHasAccessToSourceApplication(any())
         verify(valueConversionService, never()).delete(any())
     }
 
@@ -306,18 +295,18 @@ class ValueConversionControllerTest {
     @DisplayName("throws forbidden when deleting value conversion without access")
     fun `deleting value conversion should throw forbidden when user has no access`() {
         doThrow(ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden"))
-            .whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 1L)
+            .whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(1L)
 
         whenever(valueConversionService.findById(1L))
             .thenReturn(validResponse(fromApplicationId = 1L))
 
-        assertThatThrownBy { getController().deleteValueConversion(authentication, 1L) }
+        assertThatThrownBy { getController().deleteValueConversion(1L) }
             .isInstanceOf(ResponseStatusException::class.java)
             .hasFieldOrPropertyWithValue("statusCode", HttpStatus.FORBIDDEN)
             .hasMessageContaining("Forbidden")
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).findById(1L)
         verify(valueConversionService, never()).delete(any())
     }
@@ -326,17 +315,17 @@ class ValueConversionControllerTest {
     @DisplayName("throws forbidden if user does not have access to value conversion on POST")
     fun `posting value conversion should throw forbidden when user has no access`() {
         doThrow(ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden"))
-            .whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(any(), any())
+            .whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(any())
 
         val request = validRequest(fromApplicationId = 1L)
 
-        assertThatThrownBy { getController().postValueConversion(authentication, request) }
+        assertThatThrownBy { getController().postValueConversion(request) }
             .isInstanceOf(ResponseStatusException::class.java)
             .hasFieldOrPropertyWithValue("statusCode", HttpStatus.FORBIDDEN)
             .hasMessageContaining("Forbidden")
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(any(), any())
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(any())
     }
 
     @Test
@@ -346,7 +335,7 @@ class ValueConversionControllerTest {
         val responseBody = validResponse()
         whenever(valueConversionService.save(request)).thenReturn(responseBody)
 
-        val response = getController().postValueConversion(authentication, request)
+        val response = getController().postValueConversion(request)
 
         verify(valueConversionService).save(request)
 
@@ -362,10 +351,10 @@ class ValueConversionControllerTest {
         whenever(valueConversionService.findById(1L)).thenReturn(existingResponse)
         whenever(valueConversionService.update(1L, request)).thenReturn(updatedResponse)
 
-        val response = getController().putValueConversion(authentication, 1L, request)
+        val response = getController().putValueConversion(1L, request)
 
         verify(valueConversionService).findById(1L)
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 2L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(2L)
         verify(valueConversionService).update(1L, request)
         assertThat(response).isEqualTo(updatedResponse)
     }
@@ -376,11 +365,11 @@ class ValueConversionControllerTest {
         val request = validRequest()
         whenever(valueConversionService.findById(1L)).thenReturn(null)
 
-        assertThatThrownBy { getController().putValueConversion(authentication, 1L, request) }
+        assertThatThrownBy { getController().putValueConversion(1L, request) }
             .isInstanceOf(ValueConversionNotFoundException::class.java)
 
         verify(valueConversionService).findById(1L)
-        verify(userAuthorizationService, never()).checkIfUserHasAccessToSourceApplication(any(), any())
+        verify(authorizationService, never()).checkIfUserHasAccessToSourceApplication(any())
         verify(valueConversionService, never()).update(any(), any())
     }
 
@@ -389,18 +378,18 @@ class ValueConversionControllerTest {
     fun `putting value conversion should throw forbidden when user has no access`() {
         val request = validRequest()
         doThrow(ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden"))
-            .whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 1L)
+            .whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(1L)
 
         whenever(valueConversionService.findById(1L))
             .thenReturn(validResponse(fromApplicationId = 1L))
 
-        assertThatThrownBy { getController().putValueConversion(authentication, 1L, request) }
+        assertThatThrownBy { getController().putValueConversion(1L, request) }
             .isInstanceOf(ResponseStatusException::class.java)
             .hasFieldOrPropertyWithValue("statusCode", HttpStatus.FORBIDDEN)
             .hasMessageContaining("Forbidden")
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).findById(1L)
         verify(valueConversionService, never()).update(any(), any())
     }

@@ -7,12 +7,7 @@ import no.novari.flyt.catalog.CatalogIntegrationTest
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
 import no.novari.flyt.catalog.discovery.clearDiscovery
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
-import no.novari.kafka.consuming.ErrorHandlerConfiguration
-import no.novari.kafka.consuming.ErrorHandlerFactory
-import no.novari.kafka.consuming.ListenerConfiguration
-import no.novari.kafka.consuming.ParameterizedListenerContainerFactoryService
-import no.novari.kafka.producing.ParameterizedProducerRecord
-import no.novari.kafka.producing.ParameterizedTemplateFactory
+import no.novari.kafka.starter.topic.EventTopicName
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
@@ -22,8 +17,13 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.kafka.listener.ConcurrentMessageListenerContainer
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry
+import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.listener.MessageListener
+import org.springframework.kafka.listener.MessageListenerContainer
 import org.springframework.test.annotation.DirtiesContext
+import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
@@ -51,17 +51,23 @@ class IntegrationMetadataEventIdempotencyIntegrationTest : CatalogIntegrationTes
     private lateinit var integrationMetadataEventHandler: IntegrationMetadataEventHandler
 
     @Autowired
-    private lateinit var parameterizedListenerContainerFactoryService: ParameterizedListenerContainerFactoryService
+    private lateinit var kafkaListenerContainerFactory: ConcurrentKafkaListenerContainerFactory<String, String>
 
     @Autowired
-    private lateinit var parameterizedTemplateFactory: ParameterizedTemplateFactory
+    private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
 
     @Autowired
-    private lateinit var errorHandlerFactory: ErrorHandlerFactory
+    private lateinit var jsonMapper: JsonMapper
 
     @Autowired
-    @Qualifier("integrationMetadataEventConsumer")
-    private lateinit var catalogServiceConsumer: ConcurrentMessageListenerContainer<String, IntegrationMetadata>
+    private lateinit var registry: KafkaListenerEndpointRegistry
+
+    @Autowired
+    @Qualifier("integrationMetadataReceivedTopic")
+    private lateinit var topic: EventTopicName
+
+    private val catalogServiceConsumer: MessageListenerContainer
+        get() = checkNotNull(registry.getListenerContainer(IntegrationMetadataEventHandler.LISTENER_ID))
 
     @Autowired
     @Qualifier("discoveryDataSource")
@@ -69,7 +75,7 @@ class IntegrationMetadataEventIdempotencyIntegrationTest : CatalogIntegrationTes
 
     private lateinit var skippedEventAppender: ListAppender<ILoggingEvent>
 
-    private var discoveryServiceConsumer: ConcurrentMessageListenerContainer<String, IntegrationMetadata>? = null
+    private var discoveryServiceConsumer: MessageListenerContainer? = null
 
     @BeforeEach
     fun setUp() {
@@ -124,47 +130,31 @@ class IntegrationMetadataEventIdempotencyIntegrationTest : CatalogIntegrationTes
      * Den registreres derfor for opprydding i [tearDown]: feiler testen mellom start og stop,
      * ville en kjørende consumer ellers blitt stående og forstyrret påfølgende tester.
      */
-    private fun createAndRegisterDiscoveryConsumer(): ConcurrentMessageListenerContainer<String, IntegrationMetadata> =
-        parameterizedListenerContainerFactoryService
-            .createRecordListenerContainerFactory(
-                IntegrationMetadata::class.java,
-                integrationMetadataEventHandler,
-                ListenerConfiguration
-                    .stepBuilder()
-                    .groupIdApplicationDefaultWithSuffix(DISCOVERY_SERVICE_GROUP_ID_SUFFIX)
-                    .maxPollRecordsKafkaDefault()
-                    .maxPollIntervalKafkaDefault()
-                    .continueFromPreviousOffsetOnAssignment()
-                    .build(),
-                errorHandlerFactory.createErrorHandler(
-                    ErrorHandlerConfiguration
-                        .stepBuilder<IntegrationMetadata>()
-                        .noRetries()
-                        .skipFailedRecords()
-                        .build(),
-                ),
-            ).createContainer(
-                IntegrationMetadataEventConsumerConfiguration.integrationMetadataEventTopicNameParameters(),
-            ).also { discoveryServiceConsumer = it }
+    private fun createAndRegisterDiscoveryConsumer(): MessageListenerContainer =
+        kafkaListenerContainerFactory
+            .createContainer(topic.name)
+            .apply {
+                containerProperties.setGroupId("$APPLICATION_ID$DISCOVERY_SERVICE_GROUP_ID_SUFFIX")
+                setupMessageListener(
+                    MessageListener<String, String> { record ->
+                        integrationMetadataEventHandler.handle(
+                            jsonMapper.readValue(record.value(), IntegrationMetadata::class.java),
+                        )
+                    },
+                )
+            }.also { discoveryServiceConsumer = it }
 
     private fun publish(version: Long) {
-        parameterizedTemplateFactory
-            .createTemplate(IntegrationMetadata::class.java)
+        kafkaTemplate
             .send(
-                ParameterizedProducerRecord
-                    .builder<IntegrationMetadata>()
-                    .topicNameParameters(
-                        IntegrationMetadataEventConsumerConfiguration
-                            .integrationMetadataEventTopicNameParameters(),
-                    ).key("$SOURCE_APPLICATION_INTEGRATION_ID-$version")
-                    .value(
-                        IntegrationMetadata(
-                            sourceApplicationId = SOURCE_APPLICATION_ID,
-                            sourceApplicationIntegrationId = SOURCE_APPLICATION_INTEGRATION_ID,
-                            integrationDisplayName = "Integrasjon $version",
-                            version = version,
-                        ),
-                    ).build(),
+                topic.name,
+                "$SOURCE_APPLICATION_INTEGRATION_ID-$version",
+                IntegrationMetadata(
+                    sourceApplicationId = SOURCE_APPLICATION_ID,
+                    sourceApplicationIntegrationId = SOURCE_APPLICATION_INTEGRATION_ID,
+                    integrationDisplayName = "Integrasjon $version",
+                    version = version,
+                ),
             ).get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
     }
 
@@ -194,6 +184,7 @@ class IntegrationMetadataEventIdempotencyIntegrationTest : CatalogIntegrationTes
         LoggerFactory.getLogger(IntegrationMetadataEventHandler::class.java) as ch.qos.logback.classic.Logger
 
     companion object {
+        private const val APPLICATION_ID = "fint-flyt-intgr-conf-service"
         private const val DISCOVERY_SERVICE_GROUP_ID_SUFFIX = "-discovery-service"
         private const val SOURCE_APPLICATION_ID = 1L
         private const val SOURCE_APPLICATION_INTEGRATION_ID = "TEST-1"

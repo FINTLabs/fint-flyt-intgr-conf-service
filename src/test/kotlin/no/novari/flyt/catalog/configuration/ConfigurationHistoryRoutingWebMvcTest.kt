@@ -1,6 +1,5 @@
 package no.novari.flyt.catalog.configuration
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import no.novari.flyt.audit.history.EntityHistoryEntryDto
 import no.novari.flyt.audit.history.HistoryEntryDto
 import no.novari.flyt.catalog.configuration.model.configuration.dtos.ConfigurationDto
@@ -20,12 +19,13 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import tools.jackson.databind.json.JsonMapper
 
 @ExtendWith(MockitoExtension::class)
 class ConfigurationHistoryRoutingWebMvcTest {
@@ -60,7 +60,7 @@ class ConfigurationHistoryRoutingWebMvcTest {
             MockMvcBuilders
                 .standaloneSetup(configurationController, historyController)
                 .setCustomArgumentResolvers(PageableHandlerMethodArgumentResolver())
-                .setMessageConverters(MappingJackson2HttpMessageConverter(jacksonObjectMapper()))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(JsonMapper.builder().findAndAddModules()))
                 .build()
     }
 

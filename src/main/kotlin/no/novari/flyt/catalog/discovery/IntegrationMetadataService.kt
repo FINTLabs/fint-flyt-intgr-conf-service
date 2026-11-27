@@ -3,6 +3,7 @@ package no.novari.flyt.catalog.discovery
 import no.novari.flyt.catalog.discovery.mapping.IntegrationMetadataMappingService
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -73,9 +74,8 @@ class IntegrationMetadataService(
 
     fun getById(id: Long): IntegrationMetadataDto? =
         integrationMetadataRepository
-            .findById(id)
-            .map(integrationMetadataMappingService::toDto)
-            .orElse(null)
+            .findByIdOrNull(id)
+            ?.let(integrationMetadataMappingService::toDto)
 
     fun versionExists(integrationMetadataDto: IntegrationMetadataDto): Boolean =
         integrationMetadataRepository.existsBySourceApplicationIdAndSourceApplicationIntegrationIdAndVersion(

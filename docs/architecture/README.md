@@ -1,7 +1,7 @@
 # Arkitektur
 
 Arkitekturen til fint-flyt-intgr-conf-service er beskrevet med [C4-modellen](https://c4model.com),
-med diagrammer i Mermaid. Blå bokser er en del av katalogtjenesten, grå er eksterne.
+med diagrammer i Mermaid. Blå er katalogtjenesten, lilla er databasen og turkis er eksternt.
 
 1. [Systemkontekst](c4-context.md): hvem som bruker katalogtjenesten, og hvilke systemer den
    samarbeider med.

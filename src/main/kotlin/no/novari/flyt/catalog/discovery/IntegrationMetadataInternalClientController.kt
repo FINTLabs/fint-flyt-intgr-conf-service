@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_CLIENT_API
+import no.novari.flyt.security.UrlPaths.INTERNAL_CLIENT_API
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ProblemDetail

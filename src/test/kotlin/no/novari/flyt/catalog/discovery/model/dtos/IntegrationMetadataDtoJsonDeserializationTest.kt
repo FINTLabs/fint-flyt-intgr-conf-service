@@ -1,10 +1,10 @@
 package no.novari.flyt.catalog.discovery.model.dtos
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
 import no.novari.flyt.catalog.discovery.model.entities.InstanceValueMetadata
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import tools.jackson.module.kotlin.jacksonObjectMapper
+import tools.jackson.module.kotlin.readValue
 
 class IntegrationMetadataDtoJsonDeserializationTest {
     @Test

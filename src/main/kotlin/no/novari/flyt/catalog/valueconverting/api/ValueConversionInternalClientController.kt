@@ -2,7 +2,7 @@ package no.novari.flyt.catalog.valueconverting.api
 
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversion
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionRepository
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_CLIENT_API
+import no.novari.flyt.security.UrlPaths.INTERNAL_CLIENT_API
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping

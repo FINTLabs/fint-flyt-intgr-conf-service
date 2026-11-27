@@ -12,12 +12,11 @@ import jakarta.validation.Validator
 import no.novari.flyt.catalog.discovery.model.dtos.InstanceMetadataContentDto
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
+import no.novari.flyt.security.UrlPaths.INTERNAL_API
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -34,7 +33,7 @@ class IntegrationMetadataController(
     private val integrationMetadataService: IntegrationMetadataService,
     private val validator: Validator,
     private val validationErrorsFormattingService: ValidationErrorsFormattingService,
-    private val userAuthorizationService: UserAuthorizationService,
+    private val authorizationService: AuthorizationService,
 ) {
     @GetMapping(params = ["kildeapplikasjonId", "kildeapplikasjonIntegrasjonId", "bareSisteVersjoner"])
     @Hidden
@@ -46,13 +45,12 @@ class IntegrationMetadataController(
     @GetMapping(params = ["kildeapplikasjonId"])
     @Operation(summary = "List metadata for a source application", operationId = "getSourceApplicationMetadata")
     fun getIntegrationMetadataForSourceApplication(
-        authentication: Authentication,
         @Parameter(description = "Source application identifier")
         @RequestParam(name = "kildeapplikasjonId") sourceApplicationId: Long,
         @Parameter(description = "Return only the latest version for each integration")
         @RequestParam(name = "bareSisteVersjoner", required = false) onlyLatestVersions: Boolean?,
     ): ResponseEntity<Collection<IntegrationMetadataDto>> {
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(authentication, sourceApplicationId)
+        authorizationService.checkIfUserHasAccessToSourceApplication(sourceApplicationId)
 
         val integrationMetadata =
             integrationMetadataService.getIntegrationMetadataForSourceApplication(
@@ -69,7 +67,6 @@ class IntegrationMetadataController(
         operationId = "getSourceApplicationsMetadata",
     )
     fun getIntegrationMetadataForSourceApplications(
-        authentication: Authentication,
         @Parameter(description = "Source application identifiers")
         @RequestParam(name = "kildeapplikasjonIds") sourceApplicationIds: Collection<Long>,
         @Parameter(description = "Return only the latest version for each integration")
@@ -77,10 +74,7 @@ class IntegrationMetadataController(
     ): ResponseEntity<Map<Long, Collection<IntegrationMetadataDto>>> {
         val requestedSourceApplicationIds = sourceApplicationIds.toSet()
         val authorizedSourceApplicationIds =
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                requestedSourceApplicationIds,
-            )
+            authorizationService.getUserAuthorizedSourceApplicationIds(requestedSourceApplicationIds)
         if (!authorizedSourceApplicationIds.containsAll(requestedSourceApplicationIds)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN)
         }
@@ -97,13 +91,12 @@ class IntegrationMetadataController(
     @GetMapping(params = ["kildeapplikasjonId", "kildeapplikasjonIntegrasjonId"])
     @Operation(summary = "List metadata versions for an integration", operationId = "getIntegrationMetadata")
     fun getIntegrationMetadataForIntegration(
-        authentication: Authentication,
         @Parameter(description = "Source application identifier")
         @RequestParam(name = "kildeapplikasjonId") sourceApplicationId: Long,
         @Parameter(description = "Source application integration identifier")
         @RequestParam(name = "kildeapplikasjonIntegrasjonId") sourceApplicationIntegrationId: String,
     ): ResponseEntity<Collection<IntegrationMetadataDto>> {
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(authentication, sourceApplicationId)
+        authorizationService.checkIfUserHasAccessToSourceApplication(sourceApplicationId)
 
         val integrationMetadata =
             integrationMetadataService.getAllForSourceApplicationIdAndSourceApplicationIntegrationId(
@@ -124,20 +117,19 @@ class IntegrationMetadataController(
         ],
     )
     fun getInstanceElementMetadataForIntegrationMetadataWithId(
-        authentication: Authentication,
         @Parameter(description = "Integration metadata identifier")
         @PathVariable metadataId: Long,
-    ): ResponseEntity<InstanceMetadataContentDto?> {
+    ): ResponseEntity<InstanceMetadataContentDto> {
         val integrationMetadataDto =
             integrationMetadataService.getById(metadataId)
                 ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
+        authorizationService.checkIfUserHasAccessToSourceApplication(
             requireNotNull(integrationMetadataDto.sourceApplicationId),
         )
 
-        return ResponseEntity.ok(integrationMetadataDto.instanceMetadata)
+        // Metadata without instance metadata still gives 200 with an empty body.
+        return ResponseEntity.ok().body(integrationMetadataDto.instanceMetadata)
     }
 
     @PostMapping
@@ -151,7 +143,6 @@ class IntegrationMetadataController(
         ],
     )
     fun post(
-        authentication: Authentication,
         @RequestBody integrationMetadataDto: IntegrationMetadataDto,
     ): ResponseEntity<Void> {
         val constraintViolations: Set<ConstraintViolation<IntegrationMetadataDto>> =
@@ -173,13 +164,12 @@ class IntegrationMetadataController(
                     )
             }
             throw ResponseStatusException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
+                HttpStatus.UNPROCESSABLE_CONTENT,
                 formattedErrors,
             )
         }
 
-        userAuthorizationService.checkIfUserHasAccessToSourceApplication(
-            authentication,
+        authorizationService.checkIfUserHasAccessToSourceApplication(
             requireNotNull(integrationMetadataDto.sourceApplicationId),
         )
 

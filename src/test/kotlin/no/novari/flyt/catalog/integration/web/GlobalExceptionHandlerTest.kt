@@ -27,7 +27,7 @@ class GlobalExceptionHandlerTest {
             )
 
         assertEquals(422, response.status)
-        assertEquals("Unprocessable Entity", response.title)
+        assertEquals("Unprocessable Content", response.title)
         assertEquals("Validation errors: ['activeConfigurationId invalid']", response.detail)
     }
 

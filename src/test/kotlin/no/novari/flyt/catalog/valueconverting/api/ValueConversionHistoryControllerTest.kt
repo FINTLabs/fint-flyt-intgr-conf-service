@@ -1,11 +1,11 @@
 package no.novari.flyt.catalog.valueconverting.api
 
 import no.novari.flyt.audit.history.AuditPropertyFilter
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionNotFoundException
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversion
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversionHistoryService
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionRepository
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -25,7 +25,7 @@ class ValueConversionHistoryControllerTest {
     private lateinit var valueConversionRepository: ValueConversionRepository
 
     @Mock
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
 
     @Mock
     private lateinit var valueConversionHistoryService: ValueConversionHistoryService
@@ -36,21 +36,21 @@ class ValueConversionHistoryControllerTest {
     private fun getController(): ValueConversionHistoryController {
         return ValueConversionHistoryController(
             valueConversionRepository,
-            userAuthorizationService,
+            authorizationService,
             valueConversionHistoryService,
         )
     }
 
     @Test
-    fun `checkAccess should pass through to userAuthorizationService when value conversion exists`() {
+    fun `checkAccess should pass through to authorizationService when value conversion exists`() {
         val valueConversion = ValueConversion(id = 1L, fromApplicationId = 42L)
         whenever(valueConversionRepository.findById(1L)).thenReturn(Optional.of(valueConversion))
 
         getController().checkAccess(authentication, 1L)
 
         org.mockito.kotlin
-            .verify(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 42L)
+            .verify(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(42L)
     }
 
     @Test
@@ -62,12 +62,12 @@ class ValueConversionHistoryControllerTest {
     }
 
     @Test
-    fun `checkAccess should propagate forbidden from userAuthorizationService`() {
+    fun `checkAccess should propagate forbidden from authorizationService`() {
         val valueConversion = ValueConversion(id = 1L, fromApplicationId = 42L)
         whenever(valueConversionRepository.findById(1L)).thenReturn(Optional.of(valueConversion))
         doThrow(ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden"))
-            .whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 42L)
+            .whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(42L)
 
         assertThatThrownBy { getController().checkAccess(authentication, 1L) }
             .isInstanceOf(ResponseStatusException::class.java)
@@ -81,10 +81,7 @@ class ValueConversionHistoryControllerTest {
         whenever(valueConversionRepository.findDistinctSourceApplicationIds())
             .thenReturn(existingSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                existingSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(existingSourceApplicationIds),
         ).thenReturn(sourceApplicationIds)
 
         val filter = getController().additionalFilter(authentication)

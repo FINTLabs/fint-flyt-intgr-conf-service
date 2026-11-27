@@ -35,7 +35,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -75,7 +75,7 @@ class ConfigurationHttpContractTest {
                     ConfigurationHistoryController(configurationHistoryService),
                 ).setControllerAdvice(ApiExceptionHandler())
                 .setCustomArgumentResolvers(PageableHandlerMethodArgumentResolver())
-                .setMessageConverters(MappingJackson2HttpMessageConverter(OBJECT_MAPPER))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(OBJECT_MAPPER.rebuild()))
                 .build()
     }
 

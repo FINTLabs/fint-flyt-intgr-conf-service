@@ -1,12 +1,11 @@
 package no.novari.flyt.catalog.valueconverting.api
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionRequest
 import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionResponse
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionValidationException
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionFilter
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionService
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -23,7 +22,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -36,6 +35,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean
 import org.springframework.web.server.ResponseStatusException
+import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 import java.util.UUID
 
@@ -45,18 +45,18 @@ class ValueConversionControllerWebMvcTest {
     private lateinit var valueConversionService: ValueConversionService
 
     @Mock
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
 
     @Mock
     private lateinit var authentication: Authentication
 
-    private val objectMapper = jacksonObjectMapper()
+    private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
     fun setUp() {
-        val controller = ValueConversionController(valueConversionService, userAuthorizationService)
+        val controller = ValueConversionController(valueConversionService, authorizationService)
         val validator =
             LocalValidatorFactoryBean().apply {
                 afterPropertiesSet()
@@ -66,7 +66,7 @@ class ValueConversionControllerWebMvcTest {
             MockMvcBuilders
                 .standaloneSetup(controller)
                 .setControllerAdvice(ValueConversionExceptionHandler())
-                .setMessageConverters(MappingJackson2HttpMessageConverter(objectMapper))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(objectMapper.rebuild()))
                 .setValidator(validator)
                 .build()
     }
@@ -90,7 +90,7 @@ class ValueConversionControllerWebMvcTest {
             .andExpect(jsonPath("$.fromApplicationId").value(1))
             .andExpect(jsonPath("$.convertingMap.A").value("B"))
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).save(request)
     }
 
@@ -115,11 +115,11 @@ class ValueConversionControllerWebMvcTest {
                     .content(requestBody),
             ).andExpect(status().isUnprocessableEntity)
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-            .andExpect(jsonPath("$.title").value("Unprocessable Entity"))
+            .andExpect(jsonPath("$.title").value("Unprocessable Content"))
             .andExpect(jsonPath("$.status").value(422))
             .andExpect(jsonPath("$.detail").value("Validation error: 'displayName is required'"))
 
-        verifyNoInteractions(userAuthorizationService, valueConversionService)
+        verifyNoInteractions(authorizationService, valueConversionService)
     }
 
     @Test
@@ -149,7 +149,7 @@ class ValueConversionControllerWebMvcTest {
                     .content(requestBody),
             ).andExpect(status().isOk)
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).save(expectedRequest)
     }
 
@@ -171,7 +171,7 @@ class ValueConversionControllerWebMvcTest {
                     .content(objectMapper.writeValueAsString(request)),
             ).andExpect(status().isUnprocessableEntity)
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-            .andExpect(jsonPath("$.title").value("Unprocessable Entity"))
+            .andExpect(jsonPath("$.title").value("Unprocessable Content"))
             .andExpect(jsonPath("$.status").value(422))
             .andExpect(
                 jsonPath("$.detail").value(
@@ -218,7 +218,7 @@ class ValueConversionControllerWebMvcTest {
             .andExpect(jsonPath("$.fromApplicationId").value(2))
             .andExpect(jsonPath("$.convertingMap.C").value("D"))
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).update(1L, request)
     }
 
@@ -251,8 +251,8 @@ class ValueConversionControllerWebMvcTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=1",
             ),
-        ).whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        ).whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(1L)
 
         mockMvc
             .perform(
@@ -302,7 +302,7 @@ class ValueConversionControllerWebMvcTest {
                     .content(objectMapper.writeValueAsString(request)),
             ).andExpect(status().isUnprocessableEntity)
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-            .andExpect(jsonPath("$.title").value("Unprocessable Entity"))
+            .andExpect(jsonPath("$.title").value("Unprocessable Content"))
             .andExpect(jsonPath("$.status").value(422))
             .andExpect(
                 jsonPath("$.detail").value(
@@ -337,7 +337,7 @@ class ValueConversionControllerWebMvcTest {
             ).andExpect(status().isNoContent)
             .andExpect(content().string(""))
 
-        verify(userAuthorizationService).checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        verify(authorizationService).checkIfUserHasAccessToSourceApplication(1L)
         verify(valueConversionService).delete(1L)
     }
 
@@ -366,8 +366,8 @@ class ValueConversionControllerWebMvcTest {
                 HttpStatus.FORBIDDEN,
                 "You do not have permission to access or modify data that is related to source application with id=1",
             ),
-        ).whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(authentication, 1L)
+        ).whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(1L)
 
         mockMvc
             .perform(
@@ -424,10 +424,7 @@ class ValueConversionControllerWebMvcTest {
 
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
         whenever(
             valueConversionService.findAllBySourceApplicationIds(
@@ -492,10 +489,7 @@ class ValueConversionControllerWebMvcTest {
 
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
         whenever(
             valueConversionService.findAllBySourceApplicationIds(
@@ -538,10 +532,7 @@ class ValueConversionControllerWebMvcTest {
 
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
         whenever(
             valueConversionService.findAllBySourceApplicationIds(
@@ -586,10 +577,7 @@ class ValueConversionControllerWebMvcTest {
 
         whenever(valueConversionService.findDistinctSourceApplicationIds()).thenReturn(candidateSourceApplicationIds)
         whenever(
-            userAuthorizationService.getUserAuthorizedSourceApplicationIds(
-                authentication,
-                candidateSourceApplicationIds,
-            ),
+            authorizationService.getUserAuthorizedSourceApplicationIds(candidateSourceApplicationIds),
         ).thenReturn(authorizedSourceApplicationIds)
         whenever(
             valueConversionService.findAllBySourceApplicationIds(
@@ -636,7 +624,7 @@ class ValueConversionControllerWebMvcTest {
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Validation error: 'size' must be greater than or equal to 1"))
 
-        verifyNoInteractions(userAuthorizationService, valueConversionService)
+        verifyNoInteractions(authorizationService, valueConversionService)
     }
 
     @Test
@@ -654,7 +642,7 @@ class ValueConversionControllerWebMvcTest {
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Validation error: 'page' is required"))
 
-        verifyNoInteractions(userAuthorizationService, valueConversionService)
+        verifyNoInteractions(authorizationService, valueConversionService)
     }
 
     @Test
@@ -679,7 +667,7 @@ class ValueConversionControllerWebMvcTest {
                 ),
             )
 
-        verifyNoInteractions(userAuthorizationService, valueConversionService)
+        verifyNoInteractions(authorizationService, valueConversionService)
     }
 
     @Test
@@ -699,7 +687,7 @@ class ValueConversionControllerWebMvcTest {
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Invalid value for request parameter 'createdAtFrom'"))
 
-        verifyNoInteractions(userAuthorizationService, valueConversionService)
+        verifyNoInteractions(authorizationService, valueConversionService)
     }
 
     @Test
@@ -724,7 +712,7 @@ class ValueConversionControllerWebMvcTest {
                 ),
             )
 
-        verifyNoInteractions(userAuthorizationService, valueConversionService)
+        verifyNoInteractions(authorizationService, valueConversionService)
     }
 
     private fun validRequest(): ValueConversionRequest {

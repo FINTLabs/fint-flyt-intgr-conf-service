@@ -17,8 +17,8 @@ import no.novari.flyt.catalog.integration.persistence.entity.Integration
 import no.novari.flyt.catalog.integration.validation.IntegrationValidationContext
 import no.novari.flyt.catalog.integration.validation.IntegrationValidatorFactory
 import no.novari.flyt.catalog.integration.web.GlobalExceptionHandler
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.assertj.core.api.Assertions.assertThat
 import org.hibernate.validator.HibernateValidator
 import org.hibernate.validator.HibernateValidatorFactory
@@ -36,7 +36,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.core.Authentication
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -56,7 +56,7 @@ import java.util.UUID
 class IntegrationHttpContractTest {
     private lateinit var integrationService: IntegrationService
     private lateinit var integrationValidatorFactory: IntegrationValidatorFactory
-    private lateinit var userAuthorizationService: UserAuthorizationService
+    private lateinit var authorizationService: AuthorizationService
     private lateinit var authentication: Authentication
     private lateinit var mockMvc: MockMvc
 
@@ -64,7 +64,7 @@ class IntegrationHttpContractTest {
     fun setUp() {
         integrationService = mock()
         integrationValidatorFactory = mock()
-        userAuthorizationService = mock()
+        authorizationService = mock()
         authentication = mock()
 
         val updateValidationService =
@@ -76,9 +76,9 @@ class IntegrationHttpContractTest {
         mockMvc =
             MockMvcBuilders
                 .standaloneSetup(
-                    IntegrationController(integrationService, updateValidationService, userAuthorizationService),
+                    IntegrationController(integrationService, updateValidationService, authorizationService),
                 ).setControllerAdvice(GlobalExceptionHandler(ValidationErrorsFormattingService()))
-                .setMessageConverters(MappingJackson2HttpMessageConverter(OBJECT_MAPPER))
+                .setMessageConverters(JacksonJsonHttpMessageConverter(OBJECT_MAPPER.rebuild()))
                 .setValidator(LocalValidatorFactoryBean().apply { afterPropertiesSet() })
                 .build()
     }
@@ -146,7 +146,7 @@ class IntegrationHttpContractTest {
             }
 
             "integration/list/forbidden-unauthorized-source-application" -> {
-                whenever(userAuthorizationService.getUserAuthorizedSourceApplicationIds(any(), any()))
+                whenever(authorizationService.getUserAuthorizedSourceApplicationIds(any()))
                     .thenReturn(emptySet())
             }
 
@@ -234,7 +234,7 @@ class IntegrationHttpContractTest {
 
     private fun stubAuthorizedSourceApplicationIds() {
         whenever(integrationService.findDistinctSourceApplicationIds()).thenReturn(setOf(1L))
-        whenever(userAuthorizationService.getUserAuthorizedSourceApplicationIds(any(), any()))
+        whenever(authorizationService.getUserAuthorizedSourceApplicationIds(any()))
             .thenReturn(setOf(1L))
     }
 
@@ -245,8 +245,8 @@ class IntegrationHttpContractTest {
                 "You do not have permission to access or modify data that is related to source application " +
                     "with id=$sourceApplicationId",
             ),
-        ).whenever(userAuthorizationService)
-            .checkIfUserHasAccessToSourceApplication(any(), eq(sourceApplicationId))
+        ).whenever(authorizationService)
+            .checkIfUserHasAccessToSourceApplication(eq(sourceApplicationId))
     }
 
     private fun stubValidatorWith(configuration: ConfigurationDto?) {

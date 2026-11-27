@@ -9,8 +9,8 @@ import no.novari.flyt.catalog.valueconverting.domain.ValueConversionMapper
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
@@ -164,7 +164,7 @@ class ValueConversionServiceTest {
         val request = mock<ValueConversionRequest>()
         whenever(valueConversionRepository.findById(valueConversionId)).thenReturn(Optional.empty())
 
-        assertThrows(ValueConversionNotFoundException::class.java) {
+        assertThrows<ValueConversionNotFoundException> {
             service.update(valueConversionId, request)
         }
 
@@ -199,7 +199,7 @@ class ValueConversionServiceTest {
         val valueConversionId = 1L
         whenever(valueConversionRepository.findById(valueConversionId)).thenReturn(Optional.empty())
 
-        assertThrows(ValueConversionNotFoundException::class.java) {
+        assertThrows<ValueConversionNotFoundException> {
             service.delete(valueConversionId)
         }
 

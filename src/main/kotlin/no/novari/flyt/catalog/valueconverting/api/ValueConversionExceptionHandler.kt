@@ -1,6 +1,5 @@
 package no.novari.flyt.catalog.valueconverting.api
 
-import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import no.novari.flyt.catalog.valueconverting.api.exception.InvalidRequestParameterException
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionDataIntegrityException
@@ -22,6 +21,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+import tools.jackson.databind.exc.MismatchedInputException
 
 /**
  * Avgrenset til value-converting-kontrollerne, fordi hvert katalogdomene har sin egen feilhåndterer
@@ -56,8 +56,8 @@ class ValueConversionExceptionHandler : ResponseEntityExceptionHandler() {
         log.warn(ex) { "Malformed request body" }
         return problem(
             exception = ex,
-            status = HttpStatus.UNPROCESSABLE_ENTITY,
-            title = "Unprocessable Entity",
+            status = HttpStatus.UNPROCESSABLE_CONTENT,
+            title = "Unprocessable Content",
             detail = createValidationDetail(ex),
             headers = headers,
             request = request,
@@ -154,8 +154,8 @@ class ValueConversionExceptionHandler : ResponseEntityExceptionHandler() {
     fun handleValueConversionValidation(exception: ValueConversionValidationException): ProblemDetail {
         log.warn(exception) { "Value conversion validation failed" }
         return createProblemDetail(
-            status = HttpStatus.UNPROCESSABLE_ENTITY,
-            title = "Unprocessable Entity",
+            status = HttpStatus.UNPROCESSABLE_CONTENT,
+            title = "Unprocessable Content",
             detail = exception.message ?: "Validation error",
         )
     }
@@ -219,7 +219,7 @@ class ValueConversionExceptionHandler : ResponseEntityExceptionHandler() {
     private fun createValidationDetail(exception: HttpMessageNotReadableException): String {
         val mostSpecificCause = exception.mostSpecificCause
         if (mostSpecificCause is MismatchedInputException) {
-            val fieldName = mostSpecificCause.path.lastOrNull()?.fieldName
+            val fieldName = mostSpecificCause.path.lastOrNull()?.propertyName
             if (!fieldName.isNullOrBlank()) {
                 return "Validation error: '$fieldName is required'"
             }

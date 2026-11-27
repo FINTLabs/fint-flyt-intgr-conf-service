@@ -1,6 +1,5 @@
 package no.novari.flyt.catalog
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.jayway.jsonpath.JsonPath
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
@@ -28,6 +27,9 @@ import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.body
+import org.springframework.web.client.toEntity
+import tools.jackson.databind.JsonNode
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.CyclicBarrier
@@ -35,7 +37,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * Runs the real security filter chain from flyt-web-resource-server against `/api/intern-klient`.
+ * Runs the real security filter chain from flyt-security-starter against `/api/intern-klient`.
  * Only the token decoding is mocked; the subject of the decoded token is the OAuth client id.
  *
  * Goes over real HTTP, because MockMvc does not forward errors to `/error`, where the security
@@ -54,6 +56,12 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
 
     @MockitoBean
     lateinit var jwtDecoder: JwtDecoder
+
+    @ParameterizedTest
+    @ValueSource(strings = ["/v3/api-docs", "/v3/api-docs.yaml"])
+    fun `serves the OpenAPI documentation without a token`(path: String) {
+        assertThat(get(path, token = null)).isEqualTo(HttpStatus.OK)
+    }
 
     @ParameterizedTest
     @MethodSource("endpoints")
@@ -102,7 +110,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
                         integrationId,
                     ).headers { it.setBearerAuth("token") }
                     .retrieve()
-                    .toEntity(IntegrationDto::class.java)
+                    .toEntity<IntegrationDto>()
 
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val integration = requireNotNull(response.body)
@@ -137,7 +145,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
                         integrationId,
                     ).headers { it.setBearerAuth("token") }
                     .retrieve()
-                    .toEntity(IntegrationMetadataDto::class.java)
+                    .toEntity<IntegrationMetadataDto>()
 
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val metadata = requireNotNull(response.body)
@@ -190,7 +198,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
                 .get()
                 .uri("/v3/api-docs/discovery")
                 .retrieve()
-                .body(JsonNode::class.java)
+                .body<JsonNode>()
         val responses =
             requireNotNull(openApi)
                 .path("paths")
@@ -202,7 +210,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
             val content = responses.path(code).path("content")
             assertThat(content.size()).isEqualTo(1)
             val schema = content.path(MediaType.APPLICATION_PROBLEM_JSON_VALUE).path("schema")
-            assertThat(schema.path("\$ref").asText()).isEqualTo("#/components/schemas/ProblemDetail")
+            assertThat(schema.path("\$ref").asString()).isEqualTo("#/components/schemas/ProblemDetail")
         }
         for (code in listOf("401", "403")) {
             assertThat(requireNotNull(responses[code]).has("content")).isFalse()
@@ -294,7 +302,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
                     }""",
             ).retrieve()
             .onStatus(HttpStatusCode::isError) { _, _ -> }
-            .toEntity(String::class.java)
+            .toEntity<String>()
 
     private fun get(
         path: String,
@@ -314,6 +322,7 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
                 .withTokenValue("token")
                 .header("alg", "none")
                 .subject(clientId)
+                .audience(listOf(clientId))
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(60))
                 .build(),

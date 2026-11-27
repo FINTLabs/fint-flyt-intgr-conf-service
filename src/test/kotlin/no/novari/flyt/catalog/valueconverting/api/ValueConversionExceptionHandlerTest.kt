@@ -40,8 +40,8 @@ class ValueConversionExceptionHandlerTest {
 
         val problemDetail = handleThroughBaseClass(exception)
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY.value(), problemDetail.status)
-        assertEquals("Unprocessable Entity", problemDetail.title)
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT.value(), problemDetail.status)
+        assertEquals("Unprocessable Content", problemDetail.title)
         assertEquals("Validation error: malformed request body", problemDetail.detail)
     }
 
@@ -68,8 +68,8 @@ class ValueConversionExceptionHandlerTest {
 
         val problemDetail = globalExceptionHandler.handleValueConversionValidation(exception)
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY.value(), problemDetail.status)
-        assertEquals("Unprocessable Entity", problemDetail.title)
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT.value(), problemDetail.status)
+        assertEquals("Unprocessable Content", problemDetail.title)
         assertEquals(
             "Validation error: convertingMap contains duplicate keys after trimming",
             problemDetail.detail,

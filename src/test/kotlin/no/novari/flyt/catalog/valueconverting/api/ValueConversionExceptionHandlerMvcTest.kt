@@ -1,9 +1,9 @@
 package no.novari.flyt.catalog.valueconverting.api
 
+import no.novari.flyt.catalog.security.AuthorizationService
 import no.novari.flyt.catalog.valueconverting.application.ValueConversionService
 import no.novari.flyt.catalog.valueconverting.domain.ValueConversionHistoryService
 import no.novari.flyt.catalog.valueconverting.infrastructure.persistence.ValueConversionRepository
-import no.novari.flyt.webresourceserver.security.user.UserAuthorizationService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.springframework.http.MediaType
@@ -19,10 +19,10 @@ class ValueConversionExceptionHandlerMvcTest {
     private val mockMvc: MockMvc =
         MockMvcBuilders
             .standaloneSetup(
-                ValueConversionController(mock<ValueConversionService>(), mock<UserAuthorizationService>()),
+                ValueConversionController(mock<ValueConversionService>(), mock<AuthorizationService>()),
                 ValueConversionHistoryController(
                     mock<ValueConversionRepository>(),
-                    mock<UserAuthorizationService>(),
+                    mock<AuthorizationService>(),
                     mock<ValueConversionHistoryService>(),
                 ),
             ).setControllerAdvice(ValueConversionExceptionHandler())

@@ -3,9 +3,8 @@ package no.novari.flyt.catalog.discovery.kafka
 import io.github.oshai.kotlinlogging.KotlinLogging
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
 import no.novari.flyt.catalog.discovery.model.entities.IntegrationMetadata
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
-import java.util.function.Consumer
 
 /**
  * Idempotent lagring av mottatt integrasjonsmetadata. Idempotensen er en forutsetning for at en
@@ -16,9 +15,10 @@ import java.util.function.Consumer
 @Component
 class IntegrationMetadataEventHandler(
     private val integrationMetadataRepository: IntegrationMetadataRepository,
-) : Consumer<ConsumerRecord<String, IntegrationMetadata>> {
-    override fun accept(consumerRecord: ConsumerRecord<String, IntegrationMetadata>) {
-        val integrationMetadata = consumerRecord.value()
+) {
+    // idIsGroup = false keeps the application's group (fint.application-id), as before.
+    @KafkaListener(id = LISTENER_ID, idIsGroup = false, topics = ["#{@integrationMetadataReceivedTopic.name}"])
+    fun handle(integrationMetadata: IntegrationMetadata) {
         val sourceApplicationId = requireNotNull(integrationMetadata.sourceApplicationId)
         val sourceApplicationIntegrationId =
             requireNotNull(integrationMetadata.sourceApplicationIntegrationId)
@@ -44,6 +44,7 @@ class IntegrationMetadataEventHandler(
     }
 
     companion object {
+        const val LISTENER_ID = "integration-metadata-received"
         private val log = KotlinLogging.logger {}
     }
 }

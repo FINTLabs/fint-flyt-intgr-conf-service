@@ -19,7 +19,7 @@ import org.springframework.test.context.TestPropertySource
         // Testcontainers-brukeren følger ikke {tenant}_{applikasjonsnavn}_db, så prefikset kan ikke utledes.
         "novari.flyt.catalog.database.schema-prefix=",
         "spring.kafka.bootstrap-servers=\${spring.embedded.kafka.brokers}",
-        "novari.kafka.default-replicas=1",
+        "novari.kafka.topic.default-replicas=1",
         "novari.kafka.topic.org-id=test-no",
         "fint.flyt.authorization.sso.client-id=test-client",
         "fint.flyt.authorization.sso.client-secret=test-secret",

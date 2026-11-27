@@ -28,25 +28,21 @@ env_prefix() {
 
 # De tre tidligere Viken-fylkene slipper også inn brukere fra den nedlagte fylkeskommunen og
 # frid-iks. Det følger ikke av namespacet, så det må stå her.
-extra_user_org_ids() {
+additional_org_ids_patch() {
   local org_id="$1"
   case "$org_id" in
-    afk.no | bfk.no | ofk.no) printf 'viken.no frid-iks.no' ;;
+    afk.no | bfk.no | ofk.no)
+      cat <<'EOF_PATCH'
+
+      - op: add
+        path: "/spec/env/-"
+        value:
+          name: "novari.flyt.security.tenant.additional-org-ids"
+          value: "viken.no,frid-iks.no"
+EOF_PATCH
+      ;;
     *) printf '' ;;
   esac
-}
-
-role_pairs() {
-  local org_id="$1"
-  local indent='              '
-  local user_org_id
-  {
-    for user_org_id in "$org_id" $(extra_user_org_ids "$org_id"); do
-      printf '%s"%s":["USER"],\n' "$indent" "$user_org_id"
-    done
-    printf '%s"vigo.no":["DEVELOPER", "USER"],\n' "$indent"
-    printf '%s"novari.no":["DEVELOPER", "USER"]' "$indent"
-  }
 }
 
 # Secreten til oauth2-klienten i ra-no bruker andre nøkkelnavn enn i de øvrige namespacene.
@@ -79,7 +75,7 @@ while IFS= read -r file; do
   export ORG_ID="${namespace//-/.}"
   export APP_INSTANCE="fint-flyt-intgr-conf-service_$(app_instance_suffix "$namespace")"
   export CONTEXT_PATH="$(env_prefix "$environment")/$namespace"
-  export ROLE_PAIRS="$(role_pairs "$ORG_ID")"
+  export ADDITIONAL_ORG_IDS_PATCH="$(additional_org_ids_patch "$ORG_ID")"
   export AUTHORIZATION_SSO_PATCHES="$(authorization_sso_patches "$namespace")"
 
   tmp="$(mktemp)"

@@ -5,4 +5,4 @@ import org.springframework.web.server.ResponseStatusException
 
 class UnprocessableEntityException(
     message: String,
-) : ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, message)
+) : ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, message)

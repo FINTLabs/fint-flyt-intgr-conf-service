@@ -14,7 +14,7 @@ import no.novari.flyt.catalog.configuration.model.configuration.dtos.Configurati
 import no.novari.flyt.catalog.configuration.validation.ConfigurationValidatorFactory
 import no.novari.flyt.catalog.configuration.validation.groups.Completed
 import no.novari.flyt.catalog.validation.ValidationErrorsFormattingService
-import no.novari.flyt.webresourceserver.UrlPaths.INTERNAL_API
+import no.novari.flyt.security.UrlPaths.INTERNAL_API
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
@@ -191,7 +191,7 @@ class ConfigurationController(
 
         if (constraintViolations.isNotEmpty()) {
             throw ResponseStatusException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
+                HttpStatus.UNPROCESSABLE_CONTENT,
                 validationErrorsFormattingService.format(constraintViolations),
             )
         }

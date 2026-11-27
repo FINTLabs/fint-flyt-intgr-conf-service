@@ -4,10 +4,10 @@ import no.novari.flyt.catalog.valueconverting.api.dto.ValueConversionRequest
 import no.novari.flyt.catalog.valueconverting.api.exception.ValueConversionValidationException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class ValueConversionMapperTest {
     private lateinit var mapper: ValueConversionMapper
@@ -85,7 +85,7 @@ class ValueConversionMapperTest {
             )
 
         val exception =
-            assertThrows(ValueConversionValidationException::class.java) {
+            assertThrows<ValueConversionValidationException> {
                 mapper.toEntity(request)
             }
 
@@ -155,7 +155,7 @@ class ValueConversionMapperTest {
             )
 
         val exception =
-            assertThrows(ValueConversionValidationException::class.java) {
+            assertThrows<ValueConversionValidationException> {
                 mapper.updateEntity(entity, request)
             }
 

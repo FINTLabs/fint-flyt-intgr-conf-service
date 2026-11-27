@@ -27,14 +27,14 @@ class ApiExceptionHandlerTest {
         val response =
             exceptionHandler.handleResponseStatusException(
                 ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    HttpStatus.UNPROCESSABLE_CONTENT,
                     "Validation error: ['mapping.valueMappingPerKey contains references to instance values that are not defined in the metadata: ['skjema.Logic.Kommune_til_tittel1']']",
                 ),
                 request,
             )
 
         assertEquals(422, response.statusCode.value())
-        assertEquals("Unprocessable Entity", response.body?.error)
+        assertEquals("Unprocessable Content", response.body?.error)
         assertEquals(
             "Validation error: ['mapping.valueMappingPerKey contains references to instance values that are not defined in the metadata: ['skjema.Logic.Kommune_til_tittel1']']",
             response.body?.message,
@@ -55,7 +55,7 @@ class ApiExceptionHandlerTest {
             )
 
         assertEquals(422, response.statusCode.value())
-        assertEquals("Unprocessable Entity", response.body?.error)
+        assertEquals("Unprocessable Content", response.body?.error)
         assertEquals("Could not find metadata with id=98", response.body?.message)
         assertEquals("/ofk-no/api/intern/konfigurasjoner/210", response.body?.path)
         assertTrue(response.body?.timestamp != null)
@@ -107,7 +107,7 @@ class ApiExceptionHandlerTest {
 
         val response =
             exceptionHandler.handleException(
-                NoResourceFoundException(HttpMethod.GET, "/ofk-no/api/intern/ukjent"),
+                NoResourceFoundException(HttpMethod.GET, "/ofk-no/api/intern/ukjent", "api/intern/ukjent"),
                 webRequest,
             )
 

@@ -10,9 +10,9 @@ import no.novari.flyt.catalog.integration.application.IntegrationService
 import org.hibernate.validator.HibernateValidatorContext
 import org.hibernate.validator.HibernateValidatorFactory
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Answers
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -62,7 +62,7 @@ class ConfigurationValidatorFactoryTest {
     fun `getValidator throws when the integration is not found`() {
         whenever(integrationService.findById(any())).thenReturn(null)
 
-        assertThrows(CouldNotFindIntegrationException::class.java) {
+        assertThrows<CouldNotFindIntegrationException> {
             configurationValidatorFactory.getValidator(1L, 1L)
         }
     }
@@ -72,7 +72,7 @@ class ConfigurationValidatorFactoryTest {
         whenever(integrationService.findById(any())).thenReturn(integrationDto())
         whenever(integrationMetadataService.getById(any())).thenReturn(null)
 
-        assertThrows(CouldNotFindMetadataException::class.java) {
+        assertThrows<CouldNotFindMetadataException> {
             configurationValidatorFactory.getValidator(1L, 1L)
         }
     }
@@ -82,7 +82,7 @@ class ConfigurationValidatorFactoryTest {
         whenever(integrationService.findById(any())).thenReturn(integrationDto())
         whenever(integrationMetadataService.getById(any())).thenReturn(integrationMetadataDto(instanceMetadata = null))
 
-        assertThrows(CouldNotFindInstanceMetadataException::class.java) {
+        assertThrows<CouldNotFindInstanceMetadataException> {
             configurationValidatorFactory.getValidator(1L, 1L)
         }
     }
