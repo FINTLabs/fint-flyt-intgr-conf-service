@@ -44,12 +44,11 @@ import java.util.Optional
 import java.util.UUID
 
 /**
- * Fastholder HTTP-kontrakten slik den er i dag, mot de delte fixturene i
- * `no.novari:flyt-catalog-contract-fixtures`. Katalogtjenesten kjører de samme fixturene med sitt
- * eget oppsett, slik at et avvik mellom de to tjenestene feiler i test framfor i drift.
+ * Fastholder HTTP-kontrakten slik den er i dag, mot fixturene i
+ * `src/test/resources/catalog-contract-fixtures`.
  *
  * Kilden er hele fixture-settet for domenet, ikke en håndplukket liste: en ny fixture uten oppsett
- * i [stubServiceLayerFor] feiler umiddelbart, i begge tjenester.
+ * i [stubServiceLayerFor] feiler umiddelbart.
  */
 class ValueConversionHttpContractTest {
     private lateinit var valueConversionService: ValueConversionService

@@ -43,8 +43,8 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Fastholder HTTP-kontrakten for configuration-domenet slik den er i dag, mot de delte fixturene i
- * `no.novari:flyt-catalog-contract-fixtures`.
+ * Fastholder HTTP-kontrakten for configuration-domenet slik den er i dag, mot fixturene i
+ * `src/test/resources/catalog-contract-fixtures`.
  *
  * Flere av fixturene fastholder atferd vi anser som uønsket - særlig at kontrolleren ikke filtrerer
  * på brukerens autoriserte kildeapplikasjoner. Det er bevisst: bevaring av dagens atferd gjennom

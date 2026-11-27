@@ -215,6 +215,14 @@ Dokumentasjonen er da tilgjengelig på:
 Dokumentasjonen krever ikke bearer-token over port-forward. Kall mot det dokumenterte interne
 API-et krever fortsatt gyldig JWT.
 
+## Kontrakttester
+
+`src/test/resources/catalog-contract-fixtures` fastholder HTTP-kontrakten per domene (`configuration`,
+`discovery`, `integration` og `value-converting`) og hendelsen `integration-metadata-received`. Hver fixture er
+en request og forventet respons i JSON, og `*HttpContractTest` kjører alle fixturene i domenet mot kontrolleren.
+En ny fixture uten oppsett i testen feiler. Fixturene og runnerne lå før i biblioteket
+`flyt-catalog-contract-fixtures`, som ble laget da fire tjenester ble slått sammen til denne.
+
 ## Kjøre lokalt
 
 Forutsetninger:

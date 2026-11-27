@@ -32,8 +32,8 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Fastholder HTTP-kontrakten for discovery-domenet slik den er i dag, mot de delte fixturene i
- * `no.novari:flyt-catalog-contract-fixtures`.
+ * Fastholder HTTP-kontrakten for discovery-domenet slik den er i dag, mot fixturene i
+ * `src/test/resources/catalog-contract-fixtures`.
  *
  * Flaten er uvanlig ved at fire GET-varianter deler samme path og diskrimineres på hvilke
  * query-parametre som er til stede. Fixturene dekker alle fire, inkludert kombinasjonen som er

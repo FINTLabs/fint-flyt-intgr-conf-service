@@ -97,7 +97,6 @@ dependencies {
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
-    testImplementation(libs.flyt.catalog.contract.fixtures)
     testImplementation(libs.mockito.kotlin)
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
