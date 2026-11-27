@@ -134,7 +134,7 @@ class InternalApiSecurityIntegrationTest : CatalogIntegrationTest() {
     }
 
     @Test
-    fun `lists only configurations in the user's integrations (FFS-2431)`() {
+    fun `lists and shows the history of only configurations in the user's integrations (FFS-2431)`() {
         val (own, other) = configurations()
         givenUserToken()
         AuthorizationServiceStub.sourceApplicationIds = "[$ACCESSIBLE_SOURCE_APPLICATION_ID]"
@@ -148,6 +148,17 @@ class InternalApiSecurityIntegrationTest : CatalogIntegrationTest() {
                 .body<JsonNode>()
         val listedIds = requireNotNull(listed)["content"].values().map { it["id"].asLong() }
         assertThat(listedIds).contains(own.id).doesNotContain(other.id)
+
+        val history =
+            client()
+                .get()
+                .uri("/api/intern/konfigurasjoner/history?page=0&size=1000")
+                .headers { it.setBearerAuth("token") }
+                .retrieve()
+                .body<JsonNode>()
+        val historyIntegrationIds =
+            requireNotNull(history)["content"].values().map { it["snapshot"]["integrationId"].asLong() }
+        assertThat(historyIntegrationIds).contains(own.integrationId).doesNotContain(other.integrationId)
     }
 
     @Test
