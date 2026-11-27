@@ -1,5 +1,6 @@
 package no.novari.flyt.catalog
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.jayway.jsonpath.JsonPath
 import no.novari.flyt.catalog.discovery.IntegrationMetadataRepository
 import no.novari.flyt.catalog.discovery.model.dtos.IntegrationMetadataDto
@@ -179,6 +180,33 @@ class InternalClientApiSecurityIntegrationTest : CatalogIntegrationTest() {
         whenever(jwtDecoder.decode(any())).thenThrow(BadJwtException("Invalid token"))
 
         assertThat(get(UNKNOWN_METADATA_PATH, token = "invalid")).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `documents metadata lookup errors with the correct OpenAPI response bodies`() {
+        val openApi =
+            RestClient
+                .create("http://localhost:$port")
+                .get()
+                .uri("/v3/api-docs/discovery")
+                .retrieve()
+                .body(JsonNode::class.java)
+        val responses =
+            requireNotNull(openApi)
+                .path("paths")
+                .path(METADATA_PATH)
+                .path("get")
+                .path("responses")
+
+        for (code in listOf("400", "404")) {
+            val content = responses.path(code).path("content")
+            assertThat(content.size()).isEqualTo(1)
+            val schema = content.path(MediaType.APPLICATION_PROBLEM_JSON_VALUE).path("schema")
+            assertThat(schema.path("\$ref").asText()).isEqualTo("#/components/schemas/ProblemDetail")
+        }
+        for (code in listOf("401", "403")) {
+            assertThat(requireNotNull(responses[code]).has("content")).isFalse()
+        }
     }
 
     @Test
